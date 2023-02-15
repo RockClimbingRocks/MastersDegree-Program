@@ -3,7 +3,10 @@
 *.jl.mem
 deps/deps.jl
 
+
+
 Images/
+Data/
 
 *.code-workspace
 *.jld2
