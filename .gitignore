@@ -5,6 +5,7 @@ deps/deps.jl
 
 Images/
 
+*.code-workspace
 *.jld2
 *.png
 *.pdf
