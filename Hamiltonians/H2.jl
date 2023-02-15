@@ -1,4 +1,4 @@
-module Hsyk2   
+module H2
     using SparseArrays;
     using Distributions;
     using LinearAlgebra;
@@ -118,7 +118,7 @@ module Hsyk2
         return norm;
     end
 
-    global function Ĥ₂(params:: Params_SKY2, isSparse:: Bool = true)
+    global function Ĥ(params:: Params_SKY2, isSparse:: Bool = true)
         dim = Int(2*params.S + 1);
         L = params.L;
 
