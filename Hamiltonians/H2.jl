@@ -7,16 +7,16 @@ module H2
     using .FermionAlgebra;
 
 
-    struct Params_SKY2
+    struct Params
         L:: Int64;
         S:: Real;
         μ:: Float64;
-        t̲:: Matrix{Real};
+        t:: Matrix{Real};
         deviation:: Real;
         mean:: Real;
     end
 
-    global function GetParams_SKY2(L:: Int64, S:: Real, μ:: Real, mean:: Real, deviation:: Real)   
+    global function GetParams(L:: Int64, S:: Real, μ:: Real, mean:: Real, deviation:: Real)   
         t = Matrix{Float64}(undef, (L,L))
 
         for i=1:L, j=1:i
@@ -27,7 +27,7 @@ module H2
             end
         end
 
-        return Params_SKY2(L, S, μ, t, deviation, mean)
+        return Params(L, S, μ, t, deviation, mean)
     end
 
     function GetTypeOfOperatorOnSite(position:: String)
@@ -43,7 +43,7 @@ module H2
         stateNumbers = FermionAlgebra.IndecesOfSubBlock(params.L, params.S) .- 1;
         states = FermionAlgebra.WriteStateInFockSpace.(stateNumbers, params.L, params.S);
 
-        t = params.t̲
+        t = params.t
         D = binomial(params.L, Int(params.L/2));
         norm = 0.
 
@@ -92,7 +92,7 @@ module H2
         stateNumbers = FermionAlgebra.IndecesOfSubBlock(params.L, params.S) .- 1;
         states = FermionAlgebra.WriteStateInFockSpace.(stateNumbers, params.L, params.S);
 
-        t = params.t̲
+        t = params.t
         D = binomial(params.L, Int(params.L/2));
         norm = 0.
 
@@ -110,15 +110,27 @@ module H2
     global function AnaliticalNormOfHamiltonian(params)
         H²_avg =  AnaliticalExpressionForAverageOfSqueredHamiltonian(params);
         H_avg² =  AnaliticalExpressionForSquaredAverageOfHamiiltonian(params);
+
+        # println("AnaliticalNormOfHamiltonian: ", params.L, " ", params.deviation)
+        # println("   ",H²_avg, " - ", H_avg²)
         return H²_avg - H_avg²;
     end
 
     global function AnaliticalNormOfHamiltonianAveraged(deviation, L, μ)
-        norm = 0.5 * deviation^2 * ( L/2 +1 ) + 0.5 * μ^2 * L;
+        norm = deviation^2 * L/4 ;
+        # println("AnaliticalNormOfHamiltonianAveraged: ", L, " ", deviation)
+        # println("   ",norm)
         return norm;
     end
 
-    global function Ĥ(params:: Params_SKY2, isSparse:: Bool = true)
+    global function AnaliticalNormOfHamiltonianAveraged2(deviation, L, μ)
+        norm = deviation^2 * (L + 1)/4 ;
+        # println("AnaliticalNormOfHamiltonianAveraged: ", L, " ", deviation)
+        # println("   ",norm)
+        return norm;
+    end
+
+    global function Ĥ_narobe(params:: Params, isSparse:: Bool = true)
         dim = Int(2*params.S + 1);
         L = params.L;
 
@@ -151,4 +163,115 @@ module H2
         return H₂[ind,ind];
     end 
 
+
+    function GetSignOfOperatorPermutation(creationOperator, inhalationOperator, state)
+        statePositions = findall(x->x==1, state);
+        sign_right = FermionAlgebra.GetSign( vcat(inhalationOperator, statePositions) );
+
+        deleteat!(statePositions, findall(x -> x∈inhalationOperator , statePositions))
+        sign_left = FermionAlgebra.GetSign( vcat(creationOperator, statePositions) );
+
+        return sign_left*sign_right;
+    end
+
+    function CanOperatorActOnState(state, i, j)
+        state′ = copy(state);
+
+        is_l_positionTaken = state′[j]==1;
+        state′[j] = 0;
+        is_i_positionEmpty = state′[i]==0;
+        state′[i] = 1;
+
+        condition = is_i_positionEmpty && is_l_positionTaken;
+
+        return state′, condition;
+    end
+
+    global function Ĥ(params:: Params, isSparse:: Bool = true)
+        L = params.L;
+        states = FermionAlgebra.IndecesOfSubBlock(L, params.S) .- 1; # Are already sorted
+        D = binomial(L, Int(L/2));
+
+        H₂ = isSparse ? spzeros(D,D) : zeros(Float64,(D,D));
+        
+        # Interaction term
+        for n in eachindex(states)
+            n_state = states[n];
+            n_FockSpace = FermionAlgebra.WriteStateInFockSpace(n_state, params.L, params.S);
+
+            # println(n_FockSpace)
+
+            for m in eachindex(states[n:end])
+                m = m + n - 1;
+                m_state = states[m];
+                m_FockSpace = FermionAlgebra.WriteStateInFockSpace(m_state, params.L, params.S);
+
+                # println("  <",n_FockSpace,"| H |", m_FockSpace,">")
+
+                if sum(abs.(n_FockSpace.-m_FockSpace))>2
+                    continue
+                end
+                
+                Hₙₘ = 0.;
+                for i=1:L, j=1:L
+                    m′_FockSpace, condition = CanOperatorActOnState(m_FockSpace, i ,j)
+
+                    # println("   ",i, " ", j)
+
+                    if condition
+                        m′_state = sum([value*2^(index-1) for (index, value) in enumerate(m′_FockSpace)])
+                    
+                        sign = GetSignOfOperatorPermutation([i], [j], m_FockSpace);
+                        Hₙₘ += n_state == m′_state ? sign * params.t[i,j] / (L)^(1/2) : 0.
+
+                        # if n_state == m′_state 
+                        #     Hₙₘ +=  sign * params.t[i,j] / (L)^(1/2);
+                        #     println("    Hₙₘ += ", round(sign * params.t[i,j] / (L)^(1/2), digits=5), "  ->  ", Hₙₘ, "   (", params.t[i,j] ,")", "  sign = ", sign)
+                        # end
+                    end
+                end
+
+                if Hₙₘ!=0.
+                    H₂[n,m] = Hₙₘ;
+                    H₂[m,n] = conj(Hₙₘ); #konjugiran element, ker gremo samo po zgornjem delu hamiltonke.                
+                end
+            end
+        end
+        
+        H₂ -= isSparse ? sparse(Matrix{Float64}(I, D,D)) .* params.μ * params.L / 2 : Matrix{Float64}(I, D,D) .* params.μ * params.L / 2 ;
+
+        
+        return H₂;
+    end 
+
 end
+
+
+
+# L= 4;
+# S=1/2;
+# μ=0;
+# mean=0;
+# deviation = 1;
+
+
+# params = H2.GetParams_SKY2(L, S, μ, mean, deviation)
+
+
+# H = H2.Ĥ(params, true)
+
+# display(params.t)
+# println()
+# println()
+
+
+
+# display(H)
+
+
+# println()
+# println()
+# display(H .- H' )
+
+
+

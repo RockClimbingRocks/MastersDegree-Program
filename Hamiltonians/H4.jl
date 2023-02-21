@@ -6,7 +6,7 @@ module H4
     include("../Helpers/FermionAlgebra.jl");
     using .FermionAlgebra; 
 
-    struct Params_SKY4
+    struct Params_H4
         L:: Int64;
         S:: Real;
         U̲:: Array{Real}; 
@@ -37,7 +37,7 @@ module H4
             # println(U[i,j,k,l], " ", U[j,i,k,l], " ", U[i,j,l,k])
         end
 
-        return Params_SKY4(L, S, U, μ, deviation, mean)
+        return Params_H4(L, S, U, μ, deviation, mean)
     end
 
     function GetTypeOfOperatorOnSite(position:: String)
@@ -51,52 +51,96 @@ module H4
         return typeOfOperatorOnSite[position]
     end
 
-    global function Ĥ(params:: Params_SKY4, isSparse:: Bool = true) 
-        dim = Int(2*params.S + 1);
+
+    function GetSignOfOperatorPermutation(creationOperator, inhalationOperator, state)
+        statePositions = findall(x->x==1, state);
+        sign_right = FermionAlgebra.GetSign( vcat(inhalationOperator, statePositions) );
+
+        deleteat!(statePositions, findall(x -> x∈inhalationOperator , statePositions))
+        sign_left = FermionAlgebra.GetSign( vcat(creationOperator, statePositions) );
+
+        return sign_left*sign_right;
+    end
+
+    function CanOperatorActOnState(state, i, j, k, l)
+        state′ = copy(state);
+
+        is_l_positionTaken = state′[l]==1;
+        state′[l] = 0;
+        is_k_positionTaken = state′[k]==1;
+        state′[k] = 0;
+        is_j_positionEmpty = state′[j]==0;
+        state′[j] = 1;
+        is_i_positionEmpty = state′[i]==0;
+        state′[i] = 1;
+
+        condition = is_i_positionEmpty && is_j_positionEmpty && is_k_positionTaken && is_l_positionTaken;
+
+
+        return state′, condition;
+    end
+
+    global function Ĥ4(params:: Params_H4, isSparse:: Bool = true)
         L = params.L;
+        states = FermionAlgebra.IndecesOfSubBlock(L, params.S) .- 1; # Are already sorted
+        D = binomial(L, Int(L/2));
 
-        H₄ = isSparse ? spzeros(dim^L, dim^L) : zeros(Float64,(dim^L, dim^L));
-
-        opᵢ = FermionAlgebra.GetMatrixRepresentationOfOperator(GetTypeOfOperatorOnSite("i"), params.S, isSparse);
-        opⱼ = FermionAlgebra.GetMatrixRepresentationOfOperator(GetTypeOfOperatorOnSite("j"), params.S, isSparse);
-        opₖ = FermionAlgebra.GetMatrixRepresentationOfOperator(GetTypeOfOperatorOnSite("k"), params.S, isSparse);
-        opₗ = FermionAlgebra.GetMatrixRepresentationOfOperator(GetTypeOfOperatorOnSite("l"), params.S, isSparse);
-        id = FermionAlgebra.GetMatrixRepresentationOfOperator("id", params.S, isSparse);
+        H₄ = isSparse ? spzeros(D,D) : zeros(Float64,(D,D));
         
-        # Hopping term
-        for i=1:L, j=1:L, k=1:L, l=1:L
-            # print(i," ",j," ",k," ",l," -> ")
-            cᵢ⁺cⱼ⁺cₖcₗ = fill(id, L);   
+        # Interaction term
+        for n in eachindex(states)
+            n_state = states[n];
+            n_FockSpace = FermionAlgebra.WriteStateInFockSpace(n_state, params.L, params.S);
 
-            # Order of those products of operators oisimporattn so dont change it!
-            cᵢ⁺cⱼ⁺cₖcₗ[i] *= opᵢ;
-            cᵢ⁺cⱼ⁺cₖcₗ[j] *= opⱼ;
-            cᵢ⁺cⱼ⁺cₖcₗ[k] *= opₖ;
-            cᵢ⁺cⱼ⁺cₖcₗ[l] *= opₗ;
+            for m in eachindex(states[n:end])
+                m = m + n - 1;
+                m_state = states[m];
+                m_FockSpace = FermionAlgebra.WriteStateInFockSpace(m_state, params.L, params.S);
 
-            signOfPermutation = FermionAlgebra.GetSign([i, j, k, l]);# println("[",i,", ",j,", ",k,", ",l,"]  =>", signOfPermutation);
-
-            sign1 = i<=j ? +1 : -1;
-            sign2 = k<=l ? +1 : -1;
-
-            
-            H₄ += params.U̲[i,j,k,l] .* foldl(kron, cᵢ⁺cⱼ⁺cₖcₗ) ./ (2*L)^(3/2) *sign1*sign2# .*signOfPermutation
-        end
-        
-
-        # Chemical potential term
-        if params.μ != 0
-            println("calculating chemical potential");
-            for i=1:L 
-                cᵢ⁺cᵢ = fill(id, L);   
-                cᵢ⁺cᵢ[i] *=  FermionAlgebra.GetMatrixRepresentationOfOperator("n", params.S, isSparse);;
+                if sum(abs.(n_FockSpace.-m_FockSpace))>4
+                    continue
+                end
                 
-                H₄ -= params.μ .* foldl(kron, cᵢ⁺cᵢ);
+                Hₙₘ = 0.;
+                for i=1:L, j=i+1:L, k=1:L, l=k+1:L
+                    m′_FockSpace, condition = CanOperatorActOnState(m_FockSpace, i ,j ,k ,l)
+
+                    if condition
+                        m′_state = sum([value*2^(index-1) for (index, value) in enumerate(m′_FockSpace)])
+                    
+                        sign = GetSignOfOperatorPermutation([i,j], [k,l], m_FockSpace);
+
+                        Hₙₘ += n_state == m′_state ? sign * 4 * params.U̲[i,j,k,l] / (2*L)^(3/2) : 0.
+                    end
+                end
+
+                if Hₙₘ!=0.
+                    H₄[n,m] = Hₙₘ;
+                    H₄[m,n] = conj(Hₙₘ); #konjugiran element, ker gremo samo po zgornjem delu hamiltonke.                
+                end
             end
         end
+        
+        H₄ -= isSparse ? sparse(Matrix{Float64}(I, D,D)) .* params.μ * params.L / 2 : Matrix{Float64}(I, D,D) .* params.μ * params.L / 2 ;
 
-        ind = FermionAlgebra.IndecesOfSubBlock(L, params.S);
-        return H₄[ind,ind];
+        
+        return H₄;
     end 
 
 end
+
+
+# L= 6;
+# S=1/2;
+# μ=0;
+# mean=0;
+# deviation = 1;
+
+
+# params = H4.GetParams(L, S, μ, mean, deviation)
+
+
+# H = H4.Ĥ4(params, false)
+
+
+# display(H)
