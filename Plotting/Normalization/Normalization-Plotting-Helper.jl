@@ -22,7 +22,7 @@ module NormalizationPlottingHelper
                 println(l, " ", i);
 
 
-                params = namespace.GetParams(L′s[l], S, μ, mean, deviation)
+                params = namespace.Params(L′s[l])
                 H₂ = namespace.Ĥ(params, true);
 
                 numericalNormOfL[i] = OperationsOnH.OperatorNorm(H₂);
@@ -70,7 +70,7 @@ end
 # namespace = H2
 
 
-# params = H2.GetParams.(Ls, 1/2, 0., 0., 1.)
+# params = H2.Params.(Ls)
 
 # norm = NormalizationPlottingHelper.Normalization2(params, iter, namespace);
 

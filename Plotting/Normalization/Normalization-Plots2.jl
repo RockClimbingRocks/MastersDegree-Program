@@ -50,8 +50,8 @@ function NormalizationDepandanceOnNumberOfTries_H2_GetData()
 
     for t in eachindex(deviation), l in eachindex(L),  i=1:MaximalNumberOfIterations
         println(t, " ", l, " ", i);
-        params = Hsyk2.GetParams_SKY2(L[l],S,μ,mean,deviation[t]);
-        H₂ = Hsyk2.Ĥ₂(params, true);
+        params = H2.Params(L[l]);
+        H₂ = H2.Ĥ₂(params, true);
 
         norm[t,l,i] = OperationsOnHamiltonian.GetNormOfMatrx(H₂)
         norm_avg[t,l,i] = sum(norm[t,l, 1:i])/i;
@@ -125,7 +125,7 @@ function NormalizationObtainedByAnaliticalCalculations_H2_GetData()
 
     for  l in eachindex(L), i in 1:maxIterations
         println(l,"  ", i);
-        params = H2.GetParams_SKY2(L[l],S,μ,mean,deviation);
+        params = H2.Params(L[l]);
         H₂ = H2.Ĥ(params, true);
 
         numericalNorm[l] += OperationsOnH.OperatorNorm(H₂)/maxIterations;
@@ -213,7 +213,7 @@ function NormalizationDepandanceOnNumberOfTries_syk4_GetData()
 
     for u in eachindex(deviation), l in eachindex(L),  i=1:MaximalNumberOfIterations
         println(u, " ", l, " ", i);
-        params = Hsyk4.GetParams_SKY4(L[l],S,μ,mean,deviation[u]);
+        params = H4.Params(L[l]);
         H₄ = Hsyk4.Ĥ₄(params, true);
 
         norm[u,l,i] = OperationsOnHamiltonian.GetNormOfMatrx(H₄)

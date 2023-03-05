@@ -7,7 +7,7 @@ module OperationsOnH
     end
 
     global function OperatorNorm(H) 
-        return AverageValueOfOperator(H^2) - AverageValueOfOperator(H)^2   
+        return √(AverageValueOfOperator(H^2) - AverageValueOfOperator(H)^2);
     end
 
 end
