@@ -1,77 +1,274 @@
 
-# To še raymisl kakao boš naredu... Nisem zdovoljen z obliko funckcih (input/output parameteri)..
+# To še razmisl kakao boš naredu... Nisem zdovoljen z obliko funckcih (input/output parameteri)..
 module ChaosIndicators
     using SparseArrays;
     using LinearAlgebra;
     using Combinatorics
+    using ITensors
 
-    include("./FermionAlgebra.jl");
+
+    include("../Helpers/FermionAlgebra.jl");
     using .FermionAlgebra;
 
-    function Ĥₕ(L, S, hᵢ)
-        Hₕ = spzeros(Float64, Int(2*S+1)^L, Int(2*S+1)^L)
-        nᵢ = fill(sparse(1.0I,Int(2*S+1),Int(2*S+1)), L); 
-        n  = sparse(1.0I,Int(2*S+1),Int(2*S+1));  n[1,1] = 0
-        nᵢ[1] = n
-   
-        for k in 1:L
-             Hₕ += hᵢ[k].*foldl(kron,circshift(nᵢ,k-1))
-        end
-        return Hₕ
-   end
+    include("../Hamiltonians/H2.jl");
+    using .H2;
 
-    global function LevelSpacingRatio(H₀, params, W̲, numberOfIterations)
-        r_of_W = zeros(Float64, length(W̲))
-        ind = FermionAlgebra.IndecesOfSubBlock(params.L, params.S);
-        # println(length(Indeces))
-   
-        # First we compute Hamiltonian for W=0, so then we only need to calculate the part with magnetic field. We only consider part with Sᶻ=0
-        # Σλ₀ = tr(H₀) 
-        # Id = sparse(I, length(ind), length(ind))
-   
-        # Here we go throu every value of W
-        for i in range(1, length(W̲))
-             print("-",i) 
-   
-             #---------------- In this for loop we average over more calculations of "r" for diffrent uniform distributions of disorer "W". 
-             for j in 1:numberOfIterations
-                  Hₕ  = Ĥₕ(params.L, params.S, (2*W̲[i]).*rand(params.L) .- W̲[i])[ind,ind]
-                  
-                #   Σλₕ = tr(Hₕ)
-                #   λ̄   =  (Σλ₀ + Σλₕ)/length(ind)
-                  # λ = @time  sort(eigs(H₀.+Hₕ .- λ̄.*Id, nev = Nₑᵢᵧ, ritzvec= false, which=:SM )[1] ) # Tuki dej rajs nev=500
-                  λ = eigvals( Matrix(H₀ .+ Hₕ) )[(2*length(ind))÷5 : (3*length(ind))÷5]
-   
-                  δ = λ[2:end] .- λ[1:end-1]
-                  r = map((x,y) -> min(x,y)/max(x,y), δ[1:end-1], δ[2:end] )
-                  r_of_W[i] += sum(r) / length(r)
-             end 
-        end
-        return r_of_W ./ numberOfIterations
-   end
+    include("../Hamiltonians/H4.jl");
+    using .H4;
+
+    
+
+    Sᵢ(x) = - abs(x)^2 * log(abs(x)^2)
 
 
+    global function InformationalEntropy(L:: Int64, q′s:: Vector{Float64}, numberOfIterations:: Int64)
+        D = binomial(L,L÷2);
+        η = 0.3;
+        i₁ = Int((D - (D*η)÷1)÷2);
+        i₂ = Int(i₁ + (D*η)÷1);
 
 
-   global function InformationalEntropy(H₀, params, W̲, numberOfIterations)
-        ind = FermionAlgebra.IndecesOfSubBlock(params.L, params.S);
-
-        ∑Sₘ = zeros(Float64, length(W̲))
-        for i in range(1,length(W̲))
+        ∑Sₘ = zeros(Float64, length(q′s));
+        for (i,q) in enumerate(q′s)
             print("-",i)
             for j in 1:numberOfIterations 
-                Hₕ = Ĥₕ(params.L, params.S, (2*W̲[i]).*rand(params.L) .- W̲[i])[ind,ind]
-                ϕ = eigvecs( Matrix(H₀ .+ Hₕ) )
-                ϕ  = ϕ[(2*length(ind))÷5 : (3*size(H₀,1))÷5,(2*size(H₀,1))÷5 : (3*size(H₀,1))÷5]
-                Sₘ = sum( map(x -> - abs(x)^2 * log(abs(x)^2), ϕ) , dims=1)
+                params2 = H2.Params(L);
+                params4 = H4.Params(L);
+                
+                H₂ = H2.Ĥ(params2);
+                H₄ = H4.Ĥ(params4);
 
-                ∑Sₘ[i] += sum(Sₘ)/length(Sₘ)
+                ϕ = eigvecs( Symmetric(Matrix(H₂ .+ q .* H₄)) );
+                ϕ  = ϕ[:, i₁:i₂];
+                Sₘ = sum( map(x -> Sᵢ(x), ϕ) , dims=1);
+
+                ∑Sₘ[i] += sum(Sₘ)/length(Sₘ);
             end 
         end
-        return ∑Sₘ./numberOfIterations
+
+        return (∑Sₘ./numberOfIterations)./log(0.48*D);
     end
 
+
+    global function LevelSpacingRatio(L, q′s, numberOfIterations)
+        r̲ = zeros(Float64, length(q′s))
+        D = binomial(L,L÷2);
+        η = 0.2;
+        i₁ = Int((D - (D*η)÷1)÷2);
+        i₂ = Int(i₁ + (D*η)÷1);
+
+        # Here we go throu every value of disorder
+        for (i, q) in enumerate(q′s)
+            print("-",i) 
+
+            #---------------- In this for loop we average over more calculations of "r" for diffrent uniform distributions of disorer. 
+            for j in 1:numberOfIterations
+                params2 = H2.Params(L);
+                params4 = H4.Params(L);
+                
+                H₂ = H2.Ĥ(params2)
+                H₄ = H4.Ĥ(params4)
+
+                λ = eigvals( Symmetric(Matrix(H₂ .+ q.*H₄)) )[i₁:i₂]
+                δ = λ[2:end] .- λ[1:end-1]
+                r = map((x,y) -> min(x,y)/max(x,y), δ[1:end-1], δ[2:end] )
+                r̲[i] += sum(r) / length(r)
+            end 
+        end
+        return r̲ ./ numberOfIterations
+    end
+
+
+
+
+
+    # function ψ_as_MPS(ψ::Vector{Float64}, L::Int64, d::Int64, cutoff::Real, maxdim:: Int64)
+    #     # sites = siteinds(d,L);
+    #     # M = MPS(ψ, sites, cutoff=cutoff, maxdim=maxdim)
+    #     N = Int(log(2, length(ψ)))
+    #     X = reshape(ψ, [2 for i in 1:L]...)
+    #     return M 
+    # end
+
+
+    """
+    This function is needed to change order of dimensions because julia ic column and not row maijor language.
+    """
+    function reversedims(M)
+        N = length(size(M));
+        M′ = permutedims(M, N:-1:1);
+        return M′;
+    end
+
+
+    """
+    Naj bo ψ vektor dimenzije d^L katerega kočemo zapisati v MPS. Kjer je L število mest, in d število možnih konfiguracij spina na posameznem mestu.
+    Cutoff določa mejo, kjer zanemari ničle, maxdim pa določi maksimalno dimezijo bloka.
+    """
+    function Bipartition(ψ::Vector{Float64}, permutations:: Vector{Vector{Int64}}, L::Int64, d::Int64, cutoff::Real, maxdim:: Int64)
+
+        M′s = Vector{Any}();
+
+        for permutation in permutations
+            M′′ = reshape(ψ, [2 for i in 1:L]...);
+            M′  = permutedims(M′′, permutation);
+            M   = reversedims(reshape(M′, :, Int(d^(L÷2)) ))
+            push!(M′s, M);
+        end
+        return M′s;
+    end
+
+
+
+    """
+    Funkcija vrne entropijo prepletenosti stanja ψ. Vrednost Nₐ je število mest v bloku A, parameter je smiselen samo če je biparticija kompaktna, če je ta nekompaktna, se parameter avtomatsko nastavi na N÷2, kjer je N skupno število mest. 
+    "Permutation" od nas hoče imeti set indeksov v A bloku, ter set indeksov v bloku B.  
+    """
+    global function EntanglementEntropy(ψ::Vector{Float64}, permutations:: Vector{Vector{Int64}}, L::Int64, d::Int64=2, cutoff::Real=10^-7, maxdim::Int64= 10)
+
+        E′s = Vector{Float64}();
+
+        M′s = Bipartition(ψ, permutations, L, d, cutoff, maxdim);
+
+        for M in M′s
+            λ′s = svdvals(M);
+            filter!(x -> x > 10^-5, λ′s);
+
+            E = sum( map(x -> Sᵢ(x), λ′s) );
+            push!(E′s, E);
+        end
+        
+        return E′s;
+    end
+
+
+
+    global function EntanglementEntropy(L::Int64, q′s::Vector{Float64}, maxNumbOfIter::Int64, permutations:: Vector{Vector{Int64}}, d::Int64=2, cutoff::Real=10^-7, maxdim::Int64= 10)
+        D = binomial(L,L÷2);
+        η = 0.2;
+        i₁ = Int((D - (D*η)÷1)÷2);
+        i₂ = Int(i₁ + (D*η)÷1);
+
+        ind = FermionAlgebra.IndecesOfSubBlock(L,1/2);
+
+
+        E′s = zeros(Float64, (length(permutations), length(q′s)))
+
+        for (j,q) in enumerate(q′s)
+
+            E = [0., 0.];
+
+            for k in 1:maxNumbOfIter
+                params2 = H2.Params(L);
+                params4 = H4.Params(L);
+                
+                H₂ = H2.Ĥ(params2);
+                H₄ = H4.Ĥ(params4);
+
+                ϕ = eigvecs( Symmetric(Matrix(H₂ .+ q .* H₄)) )[:, i₁:i₂];
+
+                E0 = [0., 0.]; 
+                for ψ in eachcol(ϕ)
+                    ψ′ = zeros(Float64, Int(2^L));
+                    ψ′[ind] = ψ;
+                
+                    E0[:] .+= ChaosIndicators.EntanglementEntropy(ψ′, permutations, L) ./ length(eachcol(ϕ));
+                end
+
+                E .+= E0./maxNumbOfIter;
+            end
+
+            E′s[:,j] .= E
+        end
+        
+        return E′s;        
+    end
+
+    
+
+
+
+
 end
+
+
+
+# include("../Hamiltonians/H2.jl");
+# using .H2;
+
+# include("../Hamiltonians/H4.jl");
+# using .H4;
+
+# include("../Helpers/FermionAlgebra.jl");
+# using .FermionAlgebra;
+
+
+# using LinearAlgebra
+
+# L = 10;
+# q = 10;
+
+# params2 = H2.Params(L);
+# H₂ = H2.Ĥ(params2);
+
+# params4 = H4.Params(L);
+# H₄ = H4.Ĥ(params4);
+
+# H = H₂ .+ q .* H₄;
+
+# D = binomial(L,L÷2);
+# η = 0.2;
+# i₁ = Int((D - (D*η)÷1)÷2);
+# i₂ = Int(i₁ + (D*η)÷1);
+# ϕ = eigvecs(Matrix(H))[:, i₁:i₂];
+
+
+# ind = FermionAlgebra.IndecesOfSubBlock(L,1/2);
+
+# permutation1 = [1:1:L...];
+# permutation2 = [1:2:L..., 2:2:L...];
+# permutations = [permutation1, permutation2];
+
+
+# function ψ̂(ψ, L)
+#     ψ′ = zeros(Float64, Int(2^L));
+#     ψ′[ind] = ψ;
+    
+#     return ψ′
+# end
+
+# ψ′s = [ ψ̂(ψ, L) for ψ in eachcol(ϕ) ];
+
+
+# E′s = ChaosIndicators.EntanglementEntropy(ψ′s, permutations, L);
+
+
+# println( sum(E′s)/length(E′s) )
+# println(D)
+
+
+
+
+
+
+# E′s = Vector{Vector{Float64}}();
+
+
+# for ψ in eachcol(ϕ)
+#     # println(ψ)
+
+#     ψ′ = zeros(Float64, Int(2^L));
+#     ψ′[ind] = ψ;
+
+#     E = ChaosIndicators.EntanglementEntropy(ψ′, permutations, L);
+#     push!(E′s, E);
+# end
+
+
+
+# println( sum(E′s)/length(E′s) )
+# println(D)
+
 
 
 

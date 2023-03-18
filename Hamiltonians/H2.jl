@@ -9,25 +9,29 @@ module H2
 
     struct Params
         L:: Int64;
+        t:: Matrix{Real};
         S:: Real;
         μ:: Float64;
-        t:: Matrix{Real};
         deviation:: Real;
         mean:: Real;
-    end
 
-    global function GetParams(L:: Int64, S:: Real, μ:: Real, mean:: Real, deviation:: Real)   
-        t = Matrix{Float64}(undef, (L,L))
-
-        for i=1:L, j=1:i
-            t[i,j] = rand(Normal(mean, deviation));
+        function Params(L:: Int64, t̲::Union{Matrix{Float64}, Missing} = missing , S::Real = 1/2, μ:: Real = 0., mean::Real=0, deviation::Real=1/4)
             
-            if i!=j
-                t[j,i] = t[i,j];
-            end
-        end
+            if isequal(t̲, missing)
+                t = Matrix{Float64}(undef, (L,L))
+                for i=1:L, j=1:i
+                    t[i,j] = rand(Normal(mean, deviation));
+                    
+                    if i!=j
+                        t[j,i] = t[i,j];
+                    end
+                end
+            else
+                t = t̲[1:L,1:L];
+            end      
 
-        return Params(L, S, μ, t, deviation, mean)
+            new(L, t, S, μ, deviation, mean)
+        end
     end
 
     function GetTypeOfOperatorOnSite(position:: String)
@@ -39,75 +43,76 @@ module H2
         return typeOfOperatorOnSite[position]
     end
 
-    function AnaliticalExpressionForAverageOfSqueredHamiltonian(params)
-        stateNumbers = FermionAlgebra.IndecesOfSubBlock(params.L, params.S) .- 1;
-        states = FermionAlgebra.WriteStateInFockSpace.(stateNumbers, params.L, params.S);
-
-        t = params.t
-        D = binomial(params.L, Int(params.L/2));
-        norm = 0.
-
-        # Covers first term of equation
-        for state in states
-            positionsOfParticles = findall(x -> x==1 ,state);
-
-            for i in positionsOfParticles
-                for k in positionsOfParticles
-                    norm  += t[i,i]*t[k,k]
-                end
-            end
-        end 
-
-        # Covers second term of a equation
-        for state in states
-            positionsOfParticles = findall(x -> x==1 ,state);
-
-            for i in positionsOfParticles
-                for j in 1:params.L
-                    if i != j
-                        norm  += t[i,j]*t[j,i]
-                    end
-                end
-            end
-        end
-
-
-        # Covers third term of a equation
-        for state in states
-            positionsOfParticles = findall(x -> x==1 ,state);
-
-            for i in positionsOfParticles
-                for j in positionsOfParticles
-                    if i != j
-                        norm  -= t[i,j]*t[j,i]
-                    end
-                end
-            end
-        end 
-
-        return norm / (D*params.L);
-    end
-
-    function AnaliticalExpressionForSquaredAverageOfHamiiltonian(params)
-        stateNumbers = FermionAlgebra.IndecesOfSubBlock(params.L, params.S) .- 1;
-        states = FermionAlgebra.WriteStateInFockSpace.(stateNumbers, params.L, params.S);
-
-        t = params.t
-        D = binomial(params.L, Int(params.L/2));
-        norm = 0.
-
-        for state in states
-            positionsOfParticles = findall(x -> x==1 ,state);
-
-            for i in positionsOfParticles
-                norm += t[i,i]
-            end
-        end
-
-        return ( norm / (D*√params.L) )^2
-    end
 
     global function AnaliticalNormOfHamiltonian(params)
+        function AnaliticalExpressionForAverageOfSqueredHamiltonian(params)
+            stateNumbers = FermionAlgebra.IndecesOfSubBlock(params.L, params.S) .- 1;
+            states = FermionAlgebra.WriteStateInFockSpace.(stateNumbers, params.L, params.S);
+
+            t = params.t
+            D = binomial(params.L, Int(params.L/2));
+            norm = 0.
+
+            # Covers first term of equation
+            for state in states
+                positionsOfParticles = findall(x -> x==1 ,state);
+
+                for i in positionsOfParticles
+                    for k in positionsOfParticles
+                        norm  += t[i,i]*t[k,k]
+                    end
+                end
+            end 
+
+            # Covers second term of a equation
+            for state in states
+                positionsOfParticles = findall(x -> x==1 ,state);
+
+                for i in positionsOfParticles
+                    for j in 1:params.L
+                        if i != j
+                            norm  += t[i,j]*t[j,i]
+                        end
+                    end
+                end
+            end
+
+
+            # Covers third term of a equation
+            for state in states
+                positionsOfParticles = findall(x -> x==1 ,state);
+
+                for i in positionsOfParticles
+                    for j in positionsOfParticles
+                        if i != j
+                            norm  -= t[i,j]*t[j,i]
+                        end
+                    end
+                end
+            end 
+
+            return norm / (D*params.L);
+        end
+
+        function AnaliticalExpressionForSquaredAverageOfHamiiltonian(params)
+            stateNumbers = FermionAlgebra.IndecesOfSubBlock(params.L, params.S) .- 1;
+            states = FermionAlgebra.WriteStateInFockSpace.(stateNumbers, params.L, params.S);
+
+            t = params.t
+            D = binomial(params.L, Int(params.L/2));
+            norm = 0.
+
+            for state in states
+                positionsOfParticles = findall(x -> x==1 ,state);
+
+                for i in positionsOfParticles
+                    norm += t[i,i]
+                end
+            end
+
+            return ( norm / (D*√params.L) )^2
+        end
+
         H²_avg =  AnaliticalExpressionForAverageOfSqueredHamiltonian(params);
         H_avg² =  AnaliticalExpressionForSquaredAverageOfHamiiltonian(params);
 
@@ -116,18 +121,10 @@ module H2
         return H²_avg - H_avg²;
     end
 
-    global function AnaliticalNormOfHamiltonianAveraged(deviation, L, μ)
-        norm = deviation^2 * L/4 ;
-        # println("AnaliticalNormOfHamiltonianAveraged: ", L, " ", deviation)
-        # println("   ",norm)
-        return norm;
-    end
 
-    global function AnaliticalNormOfHamiltonianAveraged2(deviation, L, μ)
-        norm = deviation^2 * (L + 1)/4 ;
-        # println("AnaliticalNormOfHamiltonianAveraged: ", L, " ", deviation)
-        # println("   ",norm)
-        return norm;
+    global function AnaliticalNormOfHamiltonianAveraged(params:: Params)
+        norm = params.deviation^2 * params.L *(params.L + 1)/4 ;
+        return √norm;
     end
 
     global function Ĥ_narobe(params:: Params, isSparse:: Bool = true)
@@ -187,12 +184,14 @@ module H2
         return state′, condition;
     end
 
-    global function Ĥ(params:: Params, isSparse:: Bool = true)
+    global function Ĥ_slowOne(params:: Params, isSparse:: Bool = true)
         L = params.L;
         states = FermionAlgebra.IndecesOfSubBlock(L, params.S) .- 1; # Are already sorted
         D = binomial(L, Int(L/2));
 
         H₂ = isSparse ? spzeros(D,D) : zeros(Float64,(D,D));
+
+        normalization = AnaliticalNormOfHamiltonianAveraged(params)
         
         # Interaction term
         for n in eachindex(states)
@@ -220,13 +219,14 @@ module H2
 
                     if condition
                         m′_state = sum([value*2^(index-1) for (index, value) in enumerate(m′_FockSpace)])
-                    
+                        
                         sign = GetSignOfOperatorPermutation([i], [j], m_FockSpace);
-                        Hₙₘ += n_state == m′_state ? sign * params.t[i,j] / (L)^(1/2) : 0.
+                        Hₙₘ += n_state == m′_state ? sign * params.t[i,j] / normalization : 0.
+
 
                         # if n_state == m′_state 
                         #     Hₙₘ +=  sign * params.t[i,j] / (L)^(1/2);
-                        #     println("    Hₙₘ += ", round(sign * params.t[i,j] / (L)^(1/2), digits=5), "  ->  ", Hₙₘ, "   (", params.t[i,j] ,")", "  sign = ", sign)
+                        #     # println("    Hₙₘ += ", round(sign * params.t[i,j] / (L)^(1/2), digits=5), "  ->  ", Hₙₘ, "   (", params.t[i,j] ,")", "  sign = ", sign)
                         # end
                     end
                 end
@@ -244,34 +244,84 @@ module H2
         return H₂;
     end 
 
+
+
+
+
+    global function Ĥ(params:: Params, isSparse:: Bool = true) 
+        L = params.L;
+        D = binomial(L,L÷2)
+
+        H₄ = isSparse ? spzeros(D, D) : zeros(Float64,(D, D));
+
+        opᵢ = FermionAlgebra.GetMatrixRepresentationOfOperator(GetTypeOfOperatorOnSite("i"), params.S, isSparse);
+        opⱼ = FermionAlgebra.GetMatrixRepresentationOfOperator(GetTypeOfOperatorOnSite("j"), params.S, isSparse);
+        id = FermionAlgebra.GetMatrixRepresentationOfOperator("id", params.S, isSparse);
+        
+        normalization = AnaliticalNormOfHamiltonianAveraged(params);
+        ind = FermionAlgebra.IndecesOfSubBlock(L, params.S);
+
+        # Hopping term
+        for i=1:L, j=i:L
+            cᵢ⁺cⱼ= fill(id, L); 
+
+            # Order of those products of operators oisimporattn so dont change it!
+            cᵢ⁺cⱼ[i] *= opᵢ;
+            cᵢ⁺cⱼ[j] *= opⱼ;
+
+            #We are doing this because we need to determine a sign for each contribution
+            matrix = foldl(kron, cᵢ⁺cⱼ)[ind,ind]
+            matrixElements = findall(x -> x==1 ,matrix)
+
+            for matrixElement in matrixElements
+                # bra = ind[matrixElement[1]]-1;
+                ket = ind[matrixElement[2]]-1;
+                ket_fockSpace = FermionAlgebra.WriteStateInFockSpace(ket, params.L, params.S)
+
+                # We need to reverse "ket_fockSpace" because program starts counting postions from left to right 
+                sign = GetSignOfOperatorPermutation([i], [j], reverse(ket_fockSpace));
+                matrix[matrixElement] = sign;
+            end
+   
+            # We need to use "t[L+1-i,L+1-j]" and not "t[i,j]"  because program starts counting postions from left to right 
+            a = params.t[L+1-i,L+1-j] .* matrix ./ normalization;
+
+            H₄ += i==j ? a : a .+ a';
+
+        end
+        
+        return H₄;
+    end 
+
 end
 
 
-
-# L= 4;
-# S=1/2;
-# μ=0;
-# mean=0;
-# deviation = 1;
+# include("../Helpers/FermionAlgebra.jl");
+# using .FermionAlgebra;
 
 
-# params = H2.GetParams_SKY2(L, S, μ, mean, deviation)
+# L= 6;
+
+# params = H2.Params(L)
 
 
-# H = H2.Ĥ(params, true)
+# H = H2.Ĥ(params, false)
+# H_slow = H2.Ĥ_slowOne(params, false)
 
 # display(params.t)
 # println()
-# println()
+# println("indexi: ", FermionAlgebra.IndecesOfSubBlock(L, params.S))
+# println("states: ", FermionAlgebra.IndecesOfSubBlock(L, params.S) .-1)
 
 
 
 # display(H)
-
-
 # println()
 # println()
-# display(H .- H' )
+# display(H_slow)
+# println()
+# println()
+# display(H .- H_slow)
 
 
 
