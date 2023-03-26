@@ -12,3 +12,4 @@ Data/
 *.jld2
 *.png
 *.pdf
+*.DS_Store
