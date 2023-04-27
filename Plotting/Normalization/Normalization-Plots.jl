@@ -1,3 +1,4 @@
+
 using JLD2 
 using LinearAlgebra
 using CurveFit
@@ -20,7 +21,7 @@ using .ChaosIndicators;
 include("../../Helpers/OperationsOnHamiltonian.jl");
 using .OperationsOnH
 
-colors = ["dodgerblue","darkviolet","limegreen","indianred","magenta","darkblue","aqua","deeppink","dimgray","red","royalblue","slategray","black","lightseagreen","forestgreen","palevioletred"]
+colors = ["dodgerblue","darkviolet","limegreen","indianred","darkblue","magenta","aqua","deeppink","dimgray","red","royalblue","slategray","black","lightseagreen","forestgreen","palevioletred"]
 markers = ["o","x","v","*","H","D","s","d","P","2","|","<",">","_","+",","]
 markers_line = ["-o","-x","-v","-H","-D","-s","-d","-P","-2","-|","-<","->","-_","-+","-,"]
 line_style   = ["solid", "dotted", "dashed", "dashdot"]
@@ -46,106 +47,268 @@ rcParams["axes.prop_cycle"] = PyPlot.matplotlib.cycler(color=colors)
 #------------------------------------------------------------------------------------------------------------------------
 #------------------------------------------------------------------------------------------------------------------------
 
-function PlotNormalizationData(L′s, maxNumbOfIter, namespace)
-    fig, ax = plt.subplots(ncols=3)
 
-    normaOfL = Vector{Float64}(undef, length(L′s));
-
+function PlotNormalizationErrorWithRespectToTheLastObtainedValue(L′s:: Vector{Int64}, N′s:: Vector{Int64}, namespace, ax)
 
     for (i,L) in enumerate(L′s)
-        folder = jldopen("./Plotting/Normalization/Data/Norm_$(namespace)_L$(L)_$(maxNumbOfIter)-Normalization.jld2", "r");
+        maxNumbOfIter = N′s[i]
+        folder = jldopen("./Plotting/Normalization/Data/Normalization_$(namespace)_L$(L)_$(maxNumbOfIter).jld2", "r");
         numericalNorm = folder["numericalNorm"];
         numericalNormByIteration = folder["numericalNormByIteration"];
         close(folder);
 
         # σ = std(numericalNorm)
         # print(round(numericalNormByIteration[end], digits=4), "(1 + ", round(σ/numericalNormByIteration[end], digits=4), ")", " & ")
-
-
-        normaOfL[i] = abs(numericalNormByIteration[end] .- 1);
-
-        ax[1].plot(1:maxNumbOfIter-1, abs.(numericalNormByIteration[1:end-1] .- numericalNormByIteration[end]), label="L=$(L)");
-
-        ax[2].plot(1:maxNumbOfIter, abs.(numericalNormByIteration .- 1), label="L=$(L)");
-
-        ax[3].scatter([L], [abs(numericalNormByIteration[end] .- 1)]);
-
-        # plot!(normAsFunctionOfIterations1, 1:maxNumbOfIter-1, abs.(numericalNormByIteration[1:end-1] .- numericalNormByIteration[end]), lc=colors[i], label="L=$(L)");
-        # plot!(normAsFunctionOfIterations2, 1:maxNumbOfIter, abs.(numericalNormByIteration .- 1), lc=colors[i], label="L=$(L)");
-        # scatter!(normAsFunctionOfSystemSize, [L], [abs(numericalNormByIteration[end] .- 1)], yerr= [abs(numericalNormByIteration[end] .- 1)*σ/abs(numericalNormByIteration[end])],  mc=:dodgerblue, label="");
+        # normaOfL[i] = abs(numericalNormByIteration[end] .- 1);
+        
+        ax.plot(1:maxNumbOfIter-1, abs.(numericalNormByIteration[1:end-1] .- numericalNormByIteration[end]), label=L"$L=%$(L)$");
     end
 
+
+
+    namespaceToInt = Dict(Main.H2 => "2", Main.H4 => "4")
+    stevilka = namespaceToInt[namespace];
+
+    ax.legend()
+    ax.set_xscale("log");
+    ax.set_yscale("log");
+    ax.set_xlabel("Število iteracij");
+    ax.set_ylabel(L"$\delta\vert\vert H_{%$(stevilka)}\vert\vert$ glede na zadnjo vrednost");
+end
+
+function PlotNormalizationErrorWithRespectToAnaliticalValue(L′s:: Vector{Int64}, N′s:: Vector{Int64}, namespace, ax)
+
+    for (i,L) in enumerate(L′s)
+        maxNumbOfIter = N′s[i]
+        folder = jldopen("./Plotting/Normalization/Data/Normalization_$(namespace)_L$(L)_$(maxNumbOfIter).jld2", "r");
+        numericalNorm = folder["numericalNorm"];
+        numericalNormByIteration = folder["numericalNormByIteration"];
+        close(folder);
+
+        # σ = std(numericalNorm)
+        # print(round(numericalNormByIteration[end], digits=4), "(1 + ", round(σ/numericalNormByIteration[end], digits=4), ")", " & ")
+        # normaOfL[i] = abs(numericalNormByIteration[end] .- 1);
+        
+        ax.plot(1:maxNumbOfIter, abs.(numericalNormByIteration[1:end] .- 1.), label=L"$L=%$(L)$");
+    end
+
+
+
+    namespaceToInt = Dict(Main.H2 => "2", Main.H4 => "4")
+    stevilka = namespaceToInt[namespace];
+
+    ax.legend()
+    ax.set_xscale("log");
+    ax.set_yscale("log");
+    ax.set_xlabel("Število iteracij");
+    ax.set_ylabel(L"$\delta \vert\vert H_{%$(stevilka)} \vert\vert$");
+end
+
+function PlotFitOfNormalizationError(L′s:: Vector{Int64}, N′s:: Vector{Int64}, namespace, ax)
+
+    normError = Vector{Float64}(undef, length(L′s));
+    μ′s = Vector{Float64}();
+    σ′s = Vector{Float64}();
+
+    for (i,L) in enumerate(L′s)
+        maxNumbOfIter = N′s[i]
+        folder = jldopen("./Plotting/Normalization/Data/Normalization_$(namespace)_L$(L)_$(maxNumbOfIter).jld2", "r");
+        numericalNorm = folder["numericalNorm"];
+        numericalNormByIteration = folder["numericalNormByIteration"];
+        close(folder);
+
+        # σ = std(numericalNorm)
+        # print(round(numericalNormByIteration[end], digits=4), "(1 + ", round(σ/numericalNormByIteration[end], digits=4), ")", " & ")
+        # normaOfL[i] = abs(numericalNormByIteration[end] .- 1);
+        numericalNormErrors = numericalNorm .- 1;
+        μ = mean(numericalNormErrors);
+        σ = std(numericalNormErrors)
+        push!(μ′s, μ);
+        push!(σ′s, σ);
+
+        normError[i] = abs(μ);
+    end
+
+
+    println("σ′s: ", round.(σ′s, digits=5))
+    println(normError)
+
+
+    ax.errorbar(L′s, normError, yerr=σ′s, fmt="o");
+
+    fit = linear_fit(L′s, log10.(normError))
+    y10 = fit[1] .+ fit[2] .* L′s;
+    y= 10 .^y10
+    println(y)
+    println(fit)
+
+    ax.plot(L′s, y, label =L"$ %$(round(fit[1], digits=3))\exp(%$(round(fit[2], digits=3))\;L) $");
+
+    namespaceToInt = Dict(Main.H2 => "2", Main.H4 => "4")
+    stevilka = namespaceToInt[namespace];
+
+    ax.legend()
+    # ax.set_xscale("log");
+    ax.set_yscale("log");
+    ax.set_ylim(10^-5,1)
+    ax.set_xlabel(L"$L$");
+    ax.set_ylabel(L"$ \delta \vert\vert H_{%$(stevilka)} \vert\vert$");
+end
+
+
+
+
+function PlotHistogramOfErrors(L′s:: Vector{Int64}, N′s:: Vector{Int64}, namespace:: Module, ax)
     
+    dict = Dict(1 => 1, 2 => 0.8, 3 => 0.6, 4 => 0.4, 5 => 0.2, 6 =>0.1);
 
-    # fit = linear_fit(L′s, log10.(normaOfL))
-    # y10 = fit[1] .+ fit[2] .* L′s;
-    # y= 10 .^y10
-    # println(y)
+    for (i,L) in enumerate(L′s)
+        folder = jldopen("./Plotting/Normalization/Data/Normalization_$(namespace)_L$(L)_$(N′s[i]).jld2", "r");
+        numericalNorm = folder["numericalNorm"];
+        numericalNormByIteration = folder["numericalNormByIteration"];
+        close(folder);
+    
+    
+        numericalNormErrors = numericalNorm .- 1;
+        
+        μ = mean(numericalNormErrors);
+        σ = std(numericalNormErrors)
+        println(μ, "   ", σ);
+    
+        
+        ax.hist(numericalNormErrors , bins= Int(√N′s[i]*2÷ 3), density=true, alpha=dict[i], color=colors[i], label=L"$L=%$(L)$");
+        # ax.axvline(x=μ, color="black", linestyle="dashed");
+
+
+        x = LinRange(-1., 1., 1000);
+        N(x) = exp(-0.5*(x-μ)^2 / σ^2) / (σ * √(2*π));
+        ax.plot(x, N.(x), color=colors[i]);
+    end
+
+    namespaceToInt = Dict(Main.H2 => "2", Main.H4 => "4")
+    stevilka = namespaceToInt[namespace];
+
+    ax.legend()
+    ax.set_xlabel(L"$\vert\vert H_{%$(stevilka)} \vert\vert - 1$");
+
+end
+
+function PlotPlotStandardDeviationAndDispalcement_L(L′s:: Vector{Int64}, N′s:: Vector{Int64}, namespace:: Module, ax)
+    
+    dict = Dict(1 => 1, 2 => 0.8, 3 => 0.6, 4 => 0.4, 5 => 0.2, 6 =>0.1);
+
+    μ′s = Vector{Float64}();
+    σ′s = Vector{Float64}();
+
+    for (i,L) in enumerate(L′s)
+        folder = jldopen("./Plotting/Normalization/Data/Normalization_$(namespace)_L$(L)_$(N′s[i]).jld2", "r");
+        numericalNorm = folder["numericalNorm"];
+        numericalNormByIteration = folder["numericalNormByIteration"];
+        close(folder);
+    
+        numericalNormErrors = numericalNorm .- 1;
+        
+        μ = mean(numericalNormErrors);
+        σ = std(numericalNormErrors);
+
+        push!(μ′s, μ);
+        push!(σ′s, σ);
+    end
+
+    ax.plot(L′s, μ′s, label = L"$\mu$");
+    ax.plot(L′s, σ′s, label = L"$\sigma$");
+
+    ax.legend(loc="center left");
+    ax.set_xlabel(L"$L$");
+    # ax.set_ylabel(L"$\mu, \;\;  \sigma$");
+
+
+    axin = ax.inset_axes([0.55, 0.55, 0.43, 0.43]);
+    PlotPlotStandardDeviationAndDispalcement_D(L′s, N′s, namespace, axin);
+
+
+    # axin.set_xscale("log")
+    # axin.set_yscale("log")
+    # axin.set_xlabel(L"$q$")
+    # axin.set_ylabel(L"Napaka $\delta \overline{E}$")
+end
+
+function PlotPlotStandardDeviationAndDispalcement_D(L′s:: Vector{Int64}, N′s:: Vector{Int64}, namespace:: Module, ax)
+    dict = Dict(1 => 1, 2 => 0.8, 3 => 0.6, 4 => 0.4, 5 => 0.2, 6 =>0.1);
+
+    μ′s = Vector{Float64}();
+    σ′s = Vector{Float64}();
+
+    for (i,L) in enumerate(L′s)
+        folder = jldopen("./Plotting/Normalization/Data/Normalization_$(namespace)_L$(L)_$(N′s[i]).jld2", "r");
+        numericalNorm = folder["numericalNorm"];
+        numericalNormByIteration = folder["numericalNormByIteration"];
+        close(folder);
+    
+        numericalNormErrors = numericalNorm .- 1;
+        
+        μ = mean(numericalNormErrors);
+        σ = std(numericalNormErrors)
+
+        push!(μ′s, μ);
+        push!(σ′s, σ);
+    end
+
+    D′s = map(L -> binomial(L, L÷2) + 10^-10, L′s);
+
+    # fit = curve_fit(PowerFit, D′s, σ′s)
     # println(fit)
+    # y′ = fit.(D′s)
+    # plot(D′s, y′, label =L"$ fit $");
 
-    # ax[3].plot(L′s, y, legend=true, label =L"%$(round(fit[1], digits=3))\exp(%$(round(fit[2], digits=3))\;L)", lc=colors[1]);
+
+    ax.plot(D′s, μ′s, label = L"$\mu$");
+    ax.plot(D′s, σ′s, label = L"$\sigma$");
+
+    # ax.legend();
+    # ax.set_yscale("log");
+    # ax.set_xscale("log");
+    ax.set_xlabel(L"$\mathcal{D}$");
+    ax.set_xscale("log");
+
+end
 
 
-    ax[1].set_xlabel("Number of Iterations");
-    # ax[1].set_ylabel("\vert\vert H_{GOE} \vert\vert - last value");
-    ax[2].set_xlabel("Number of Iterations");
-    # ax[2].set_ylabel(L"\delta \vert\vert H_{GOE} \vert\vert");
-    ax[3].set_xlabel("L");
-    # ax[3].set_ylabel(L"\delta \vert\vert H_{GOE} \vert\vert");
 
-    ax[1].legend()
-    ax[2].legend()
-    display(fig)
-    plt.show() 
 
-end 
 
-# L′s = [6,8];
-# maxNumbOfIter = 5000;
+
+function Plot1( L′s:: Vector{Int64}, N′s:: Vector{Int64}, namespace)
+    fig, ax = plt.subplots(ncols=3)
+
+    PlotNormalizationErrorWithRespectToTheLastObtainedValue(L′s, N′s, namespace, ax[1])
+    PlotNormalizationErrorWithRespectToAnaliticalValue(L′s, N′s, namespace, ax[2])
+    PlotFitOfNormalizationError(L′s, N′s, namespace, ax[3])
+
+    plt.show();
+end
+
+
+function Plot2(L′s:: Vector{Int64}, N′s:: Vector{Int64}, namespace:: Module)
+    fig, ax = plt.subplots(nrows = 1, ncols=2)
+
+    PlotHistogramOfErrors(L′s, N′s, namespace, ax[1]);
+    PlotPlotStandardDeviationAndDispalcement_L(L′s, N′s, namespace, ax[2]);
+
+    plt.show();
+end
+
+
+
+# L′s = [4,6,8,10,12];
+# NumberOfIterations′s = [5000, 5000, 5000, 5000, 5000];
+# namespace = H2;    
+# Plot1( L′s, NumberOfIterations′s, namespace);
+
+
+# L′s = [4,6,8,10,12];
+# N′s = [5000, 5000, 5000, 5000, 5000];
 # namespace = H2
-
-# PlotNormalizationData(L′s, maxNumbOfIter, namespace)
-
+# Plot2( L′s, N′s, namespace);
 
 
-
-
-
-# using PyPlot;
-
-# x = [1, 1, 2, 3, 3, 5, 7, 8, 9, 10,
-#      10, 11, 11, 13, 13, 15, 16, 17, 18, 18,
-#      18, 19, 20, 21, 21, 23, 24, 24, 25, 25,
-#      25, 25, 26, 26, 26, 27, 27, 27, 27, 27,
-#      29, 30, 30, 31, 33, 34, 34, 34, 35, 36,
-#      36, 37, 37, 38, 38, 39, 40, 41, 41, 42,
-#      43, 44, 45, 45, 46, 47, 48, 48, 49, 50,
-#      51, 52, 53, 54, 55, 55, 56, 57, 58, 60,
-#      61, 63, 64, 65, 66, 68, 70, 71, 72, 74,
-#      75, 77, 81, 83, 84, 87, 89, 90, 90, 91
-#      ]
-
-
-x= [ sum(rand(10)) for i in 1:10000]
-
-x̄ = mean(x)
-σ = √sum((x .- x̄).^2/length(x))
-
-println(x̄, "  ", σ)
-# plt.style.use('ggplot')
-N = length(x)
-
-# amm = exp.(-(x.-x̄).^2 ./ (2 .* σ^2)) ./ (√(2 .* π).*σ)
-plt.hist((x.-x̄)./(σ * √(length(x))) , bins= Int(√N ÷ 1))
-
-xx = LinRange(minimum(x),  maximum(x), 1000)
-
-
-println(4444)
-
-
-yy = exp.(-(xx .- x̄).^2 ./ (2 .* σ^2)) ./ (√(2 .* π).*σ)
-
-plot(xx,yy)
-
-plt.show()

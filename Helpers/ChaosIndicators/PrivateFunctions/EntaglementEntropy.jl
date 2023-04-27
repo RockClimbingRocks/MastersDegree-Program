@@ -42,7 +42,7 @@ module EE
     Naj bo ψ vektor dimenzije d^L katerega kočemo zapisati v MPS. Kjer je L število mest, in d število možnih konfiguracij spina na posameznem mestu.
     Cutoff določa mejo, kjer zanemari ničle, maxdim pa določi maksimalno dimezijo bloka.
     """
-    function Bipartition(ψ::Vector{Float64}, permutations:: Vector{Vector{Int64}}, L::Int64, d::Int64, cutoff::Real, maxdim:: Int64)
+    function Bipartition′s(ψ::Vector{Float64}, permutations:: Vector{Vector{Int64}}, L::Int64, d::Int64, cutoff::Real, maxdim:: Int64)
 
         M′s = Vector{Any}();
 
@@ -55,16 +55,29 @@ module EE
         return M′s;
     end
 
+    function Bipartition(ψ::Vector{Float64}, setA::Vector{Int64}, setB::Vector{Int64})
+        L  = length(setA) + length(setB);
+        Lₐ = length(setA);
+
+        permutation:: Vector{Int64} = vcat(setA, setB);
+
+        M′′ = reshape(ψ, [2 for i in 1:L]...);
+        M′  = permutedims(M′′, permutation);
+        M   = reversedims(reshape(M′, :, Int(2^Lₐ) ))
+
+        return M;
+    end
+ 
 
     """
     Funkcija vrne entropijo prepletenosti stanja ψ. Vrednost Nₐ je število mest v bloku A, parameter je smiselen samo če je biparticija kompaktna, če je ta nekompaktna, se parameter avtomatsko nastavi na N÷2, kjer je N skupno število mest. 
     "Permutation" od nas hoče imeti set indeksov v A bloku, ter set indeksov v bloku B.  
     """
-    global function EntanglementEntropy(ψ::Vector{Float64}, permutations:: Vector{Vector{Int64}}, L::Int64, d::Int64=2, cutoff::Real=10^-7, maxdim::Int64= 10)
+    global function EntanglementEntropy′s(ψ::Vector{Float64}, permutations:: Vector{Vector{Int64}}, L::Int64, d::Int64=2, cutoff::Real=10^-7, maxdim::Int64= 10)
 
         E′s = Vector{Float64}();
 
-        M′s = Bipartition(ψ, permutations, L, d, cutoff, maxdim);
+        M′s = Bipartition′s(ψ, permutations, L, d, cutoff, maxdim);
 
         for M in M′s
             λ′s = svdvals(M);
@@ -77,88 +90,20 @@ module EE
         return E′s;
     end
 
+    """
+    hmm
+    """
+    global function EntanglementEntropy(ϕ:: Vector{Float64}, setA::Vector{Int64}, setB::Vector{Int64}, d::Int64=2, cutoff::Real=10^-7, maxdim::Int64= 10)
+        M = Bipartition(ϕ, setA, setB);
+
+        λ′s = svdvals(M);
+        filter!(x -> x > cutoff, λ′s);
+
+        EE = sum( map(x -> Sᵢ(x), λ′s) );
+        return EE;
+    end
+
 
 end
-
-
-
-# include("../Hamiltonians/H2.jl");
-# using .H2;
-
-# include("../Hamiltonians/H4.jl");
-# using .H4;
-
-# include("../Helpers/FermionAlgebra.jl");
-# using .FermionAlgebra;
-
-
-# using LinearAlgebra
-
-# L = 10;
-# q = 10;
-
-# params2 = H2.Params(L);
-# H₂ = H2.Ĥ(params2);
-
-# params4 = H4.Params(L);
-# H₄ = H4.Ĥ(params4);
-
-# H = H₂ .+ q .* H₄;
-
-# D = binomial(L,L÷2);
-# η = 0.2;
-# i₁ = Int((D - (D*η)÷1)÷2);
-# i₂ = Int(i₁ + (D*η)÷1);
-# ϕ = eigvecs(Matrix(H))[:, i₁:i₂];
-
-
-# ind = FermionAlgebra.IndecesOfSubBlock(L,1/2);
-
-# permutation1 = [1:1:L...];
-# permutation2 = [1:2:L..., 2:2:L...];
-# permutations = [permutation1, permutation2];
-
-
-# function ψ̂(ψ, L)
-#     ψ′ = zeros(Float64, Int(2^L));
-#     ψ′[ind] = ψ;
-    
-#     return ψ′
-# end
-
-# ψ′s = [ ψ̂(ψ, L) for ψ in eachcol(ϕ) ];
-
-
-# E′s = ChaosIndicators.EntanglementEntropy(ψ′s, permutations, L);
-
-
-# println( sum(E′s)/length(E′s) )
-# println(D)
-
-
-
-
-
-
-# E′s = Vector{Vector{Float64}}();
-
-
-# for ψ in eachcol(ϕ)
-#     # println(ψ)
-
-#     ψ′ = zeros(Float64, Int(2^L));
-#     ψ′[ind] = ψ;
-
-#     E = ChaosIndicators.EntanglementEntropy(ψ′, permutations, L);
-#     push!(E′s, E);
-# end
-
-
-
-# println( sum(E′s)/length(E′s) )
-# println(D)
-
-
-
 
 

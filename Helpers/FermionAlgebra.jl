@@ -69,7 +69,7 @@ module FermionAlgebra
         return sign
     end
 
-    global function IndecesOfSubBlock(L,S)
+    global function IndecesOfSubBlock(L:: Int64, S:: Float64=1/2)
         # Function returns indeces of a subblock that have total number of spin in z disrection equal to zero S_z = ∑Szi=0
 
         M = collect( Int(2S+1).^(0:L-1))

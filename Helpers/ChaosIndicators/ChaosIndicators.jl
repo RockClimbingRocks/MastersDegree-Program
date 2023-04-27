@@ -5,7 +5,7 @@ module ChaosIndicators
     using LinearAlgebra;
     using Combinatorics
     using ITensors
-
+    using Statistics
 
     include("../../Helpers/FermionAlgebra.jl");
     using .FermionAlgebra;
@@ -66,6 +66,20 @@ module ChaosIndicators
 
         return (∑Sₘ./numberOfIterations)./log(0.48*D);
     end
+
+    global function InformationalEntropyAsFunctionOfEnergy(L:: Int64, q:: Float64)
+        params2 = H2.Params(L);
+        params4 = H4.Params(L);
+            
+        H₂ = H2.Ĥ(params2);
+        H₄ = H4.Ĥ(params4);
+
+        Eₘ, ϕ = eigen( Symmetric(Matrix(H₂ .+ q .* H₄)) );
+        Sₘ = map(x -> sum(Sᵢ.(x)), eachcol(ϕ));
+
+        return Sₘ, Eₘ;
+    end
+
 
     global function LevelSpacingRatio(L, q′s, numberOfIterations)
         r̲ = zeros(Float64, length(q′s))
@@ -137,61 +151,84 @@ module ChaosIndicators
     end
 
 
+    global function EntanglementEntropy2(L::Int64, q′s::Vector{Float64}, maxNumbOfIter::Int64, permutations:: Vector{Vector{Int64}}, d::Int64=2, cutoff::Real=10^-7, maxdim::Int64= 10)
+        D = binomial(L,L÷2);
+        η = 0.2;
+        i₁ = Int((D - (D*η)÷1)÷2);
+        i₂ = Int(i₁ + (D*η)÷1);
 
-    function ĝ(L::Int64, q::Float64, N::Int64, τ′s:: Vector{Float64})
+        ind = FermionAlgebra.IndecesOfSubBlock(L,1/2);
 
-        println("   q = ",q,)
-        coeffs, Es′s = SFF.K̂_data(N, L, q);
-        println("      coeffs and Es are calculated.");
 
-        Ks = map(τ -> SFF.K̂(τ, coeffs, Es′s), τ′s);
-        println("      K′s are calculated.");
+        E′s = zeros(Float64, (length(permutations), length(q′s), maxNumbOfIter))
+        σ′s = zeros(Float64, (length(permutations), length(q′s), maxNumbOfIter))
 
-        τ_Th:: Float64 = 0.;
-        τ_H:: Float64 = 0.;
-        g:: Float64 = 0.;
+        for (j,q) in enumerate(q′s)
 
-        doesτexist:: Bool = true;
+            println("   q=",q)
 
-        try
-            println("       Trying...")
-            τ_Th = SFF.τ̂_Th(Ks, τ′s);
-            τ_H = SFF.τ̂_H(Es′s);
-            g = SFF.ĝ(τ_Th, τ_H);
+            E = [0., 0.];
 
-            doesτexist = true;
-        catch errorMessage
-            println("       Catched error: ", errorMessage);
+            for k in 1:maxNumbOfIter
+                params2 = H2.Params(L);
+                params4 = H4.Params(L);
+                
+                H₂ = H2.Ĥ(params2);
+                H₄ = H4.Ĥ(params4);
 
-            errorNumber = 666.;
-            τ_Th = errorNumber;
-            τ_H = errorNumber;
-            g = errorNumber;
-            doesτexist = false;
-        finally
-            println("       Finally")
-            return coeffs, Es′s, Ks, τ_Th, τ_H, g, doesτexist;
+                ϕ = eigvecs( Symmetric(Matrix(H₂ .+ q .* H₄)) )[:, i₁:i₂];
+
+                E0 = zeros(Float64, (length(permutations), size(ϕ)[2]));
+
+                for l in eachindex(ϕ[1,:])
+                    ψ = ϕ[:,l]
+                    ψ′ = zeros(Float64, Int(2^L));
+                    ψ′[ind] = ψ;
+                
+                    E0[:,l] .= EE.EntanglementEntropy(ψ′, permutations, L) ;
+                end
+
+                # using Statistics
+                # X = [1. 2.; 
+                #     55. 0.1]
+
+                # d = mean(X, dims=2)
+                # println(d)
+
+                # c = std(X, dims=2)
+                # println(c)
+
+                E′s[:,j, k] .= mean(E0, dims=2)
+                σ′s[:,j, k] .= std(E0, dims=2)
+
+            end
+
         end
         
-
+        return E′s, σ′s;        
     end
 
 
-    function ĝ2(L::Int64, q::Float64, N::Int64, Nτ::Int64, η:: Float64)
+    function ĝ(L::Int64, q::Float64, N::Int64, Nτ::Int64, η:: Float64)
 
         println("   q = ", q,)
         coeffs′s, Es′s = SFF.K̂_data(N, L, q);
         println("      coeffs and Es are calculated.");
 
 
-        K′s, τ′s, τ_Th =  SFF.τ̂_Th(Nτ, coeffs′s, Es′s, η)
+        τ′s, K′s, τ_Th, Kc′s, τ_Th_c =  SFF.τ̂_Th(Nτ, coeffs′s, Es′s, η)
         t_H = SFF.t̂_H(Es′s);
         t_Th = SFF.t̂_Th(τ_Th, t_H) 
         g = SFF.ĝ(τ_Th);
 
+        t_Th_c = SFF.t̂_Th(τ_Th_c, t_H) 
+        g_c = SFF.ĝ(τ_Th_c);
+
+
+
         
         
-        return coeffs′s, Es′s, K′s, τ′s, τ_Th, t_Th, t_H, g
+        return coeffs′s, Es′s, τ′s, t_H, τ_Th, K′s, t_Th, g, τ_Th_c, Kc′s, t_Th_c, g_c;
     end
 
 

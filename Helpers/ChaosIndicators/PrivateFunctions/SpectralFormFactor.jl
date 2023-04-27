@@ -2,13 +2,13 @@
 # To še razmisl kakao boš naredu... Nisem zdovoljen z obliko funckcih (input/output parameteri)..
 module SFF
     using CurveFit
-using ITensors
-using LaTeXStrings
-using LinearAlgebra
-using Polynomials
-# using PyPlot
-using SparseArrays
-using Statistics;
+    using ITensors
+    using LaTeXStrings
+    using LinearAlgebra
+    using Polynomials
+    # using PyPlot
+    using SparseArrays
+    using Statistics;
 
 
     include("../../../Helpers/FermionAlgebra.jl");
@@ -108,7 +108,6 @@ using Statistics;
         y = map(x -> Ĝ(x,E′s), E′s);
         coeff′s = poly_fit(E′s, y, n);
 
-
         ValidationOfPolynomialCoeffitions(coeff′s, E′s);
         
         return coeff′s;
@@ -147,6 +146,8 @@ using Statistics;
 
         return coeff′s, Es′s;
     end
+
+
 
 
     # """
@@ -197,9 +198,9 @@ using Statistics;
     - `numberOfIterations:: Int64`: Number of iterations for averaging.
     - `L::Int64 = 5: system size.`
     - `q::Int64: Value of disorder parameter in SYK model.`
-    - `n::Int64: Degree of polynomial to fit.`
+    - `n::Float64: Degree of polynomial to fit.`
     """
-    function K̂(τ′s::Vector{Float64}, coeff′s:: Vector{Any}, E′s:: Vector{Any}, η:: Float64)
+    function K̂(τ′s::Vector{Float64}, coeff′s:: Vector{Vector{Float64}}, E′s:: Vector{Vector{Float64}}, η:: Float64)
         numberOfIterations:: Int = length(coeff′s);
         Nτ:: Int64 = length(τ′s);
 
@@ -216,15 +217,89 @@ using Statistics;
             ε̄ = mean(ε′s);    
             Γ = stdm(ε′s, ε̄); 
             
-            for (j, τ) in enumerate(τ′s)
-                K̃ᵢ = sum(map(εᵢ -> ρ̂(εᵢ, ε̄, Γ, η)*exp(-2*π*εᵢ*τ*1im), ε′s));   K̃[j] += abs(K̃ᵢ)^2 / numberOfIterations;
-                Zᵢ = sum( abs.(ρ̂.(ε′s, ε̄, Γ, η)).^2);   Z[j] += Zᵢ / numberOfIterations;
+            if η==Inf
+                println(η, "  ", i );
+                for (j, τ) in enumerate(τ′s)
+                    K̃ᵢ = sum(map(εᵢ -> exp(-2*π*εᵢ*τ*1im), ε′s));   K̃[j] += abs(K̃ᵢ)^2 / numberOfIterations;
+                end
+            else
+                for (j, τ) in enumerate(τ′s)
+                    K̃ᵢ = sum(map(εᵢ -> ρ̂(εᵢ, ε̄, Γ, η)*exp(-2*π*εᵢ*τ*1im), ε′s));   K̃[j] += abs(K̃ᵢ)^2 / numberOfIterations;
+                    Zᵢ = sum( abs.(ρ̂.(ε′s, ε̄, Γ, η)).^2);   Z[j] += Zᵢ / numberOfIterations;
+                end
             end
         end
 
-
-        Ks = K̃./Z;
+        Ks = η==Inf ? K̃ : K̃./Z
         return Ks;
+    end
+
+
+    """
+    Function returns value of Spectral Form Factor at value τ and for coeffitents annd spectrum obtained from K̂_data.
+
+    # Arguments
+    - `numberOfIterations:: Int64`: Number of iterations for averaging.
+    - `L::Int64 = 5: system size.`
+    - `q::Int64: Value of disorder parameter in SYK model.`
+    - `n::Float64: Degree of polynomial to fit.`
+    """
+    function K̂c(τ′s::Vector{Float64}, coeff′s:: Vector{Vector{Float64}}, E′s:: Vector{Vector{Float64}}, η:: Float64)
+        numberOfIterations:: Int = length(coeff′s);
+        Nτ:: Int64 = length(τ′s);
+
+        K1:: Vector{Float64} = zeros(Float64, Nτ); 
+        K̄2:: Vector{Complex} = zeros(Complex, Nτ); 
+        A:: Float64 = 0.;
+        B̄:: Complex = 0.;
+        Z:: Float64 = 0.;
+
+        for i in 1:numberOfIterations
+            coeffs = coeff′s[i];
+            Es = E′s[i];
+            if η==Inf
+                println("TO še naredi oziroma popravi!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" );
+                throw(error("ni še implementirano!"));
+            else
+                K1_, K̄2_, A_, B̄_, Z_ = K̂_singleIteration(Es, coeffs, τ′s, η);
+
+                K1 .+= K1_ ./ numberOfIterations;
+                K̄2 .+= K̄2_ ./ numberOfIterations;
+                A  += A_  / numberOfIterations;
+                B̄  += B̄_  / numberOfIterations;
+                Z  += Z_  / numberOfIterations;
+            end
+        end
+
+        K2:: Vector{Float64} = @. abs(K̄2)^2;
+        B:: Float64 = abs(B̄)^2;
+
+        K:: Vector{Float64}  = @.  K1  / Z;
+        Kc:: Vector{Float64} = @. (K1 - A*K2/B) / Z;
+        return K, Kc;
+    end
+
+
+
+    function K̂_singleIteration(E′s::Vector{Float64}, coeffs::Vector{Float64}, τ′s::Vector{Float64}, η:: Float64)
+        ḡₙ = Polynomial(coeffs);
+
+        ε′s = ḡₙ.(E′s);    
+        ε̄ = mean(ε′s);    
+        Γ = std(ε′s); 
+
+        K1ᵢ(τ) = abs(sum( map(εᵢ ->     ρ̂(εᵢ, ε̄, Γ, η)*exp(-2*π*εᵢ*τ*1im), ε′s)))^2
+        K̄2ᵢ(τ) =     sum( map(εᵢ ->     ρ̂(εᵢ, ε̄, Γ, η)*exp(-2*π*εᵢ*τ*1im), ε′s))
+        Aᵢ     = abs(sum( map(εᵢ ->     ρ̂(εᵢ, ε̄, Γ, η)                   , ε′s)))^2;
+        B̄ᵢ     =     sum( map(εᵢ ->     ρ̂(εᵢ, ε̄, Γ, η)                   , ε′s));
+        Zᵢ     =     sum( map(εᵢ -> abs(ρ̂(εᵢ, ε̄, Γ, η))^2                , ε′s));
+
+        if η==Inf
+            println("To še naredi oziroma popravi!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" );
+            throw(error("ni še implementirano!"));
+        else
+            return K1ᵢ.(τ′s), K̄2ᵢ.(τ′s), Aᵢ, B̄ᵢ, Zᵢ
+        end
     end
 
 
@@ -237,7 +312,7 @@ using Statistics;
     - `K:: Vector{Float64}`: Vectro of Spectral Form Factor for different values of τ.
     - `τ:: Vector{Float64}`: Vector of τ′s.`
     """
-    function τ̂_Th0(K::Vector{Float64}, τ::Vector{Float64}, η:: Float64, Δ::Int64=100, ε::Float64=0.08)        
+    function τ̂_Th0(K::Vector{Float64}, τ::Vector{Float64}, Δ::Int64=100, ε::Float64=0.08)        
         K̄ = Vector{Float64}();
         τ′s = τ[Δ:end-Δ]
         for i in Δ:length(τ)-Δ
@@ -260,61 +335,70 @@ using Statistics;
     end
 
 
+
     """
-    Thouless time (in unphysical units).
+    Thouless time  (in unphysical units).
 
     # Arguments
     - `K:: Vector{Float64}`: Vectro of Spectral Form Factor for different values of τ.
     - `Δτ:: Float64`: Steps of τ in which to search for Thoulless time.`
     """
-    function τ̂_Th(Nτ::Int64, coeffs′s:: Vector{Any}, Es′s:: Vector{Any}, η:: Float64)        
-        min = -5;
-        max = 1;
+    function τ̂_Th(Nτ::Int64, coeffs′s:: Vector{Vector{Float64}}, Es′s:: Vector{Vector{Float64}}, η:: Float64)        
+        min = -4;
+        max = 0;
 
         K′s = Vector{Float64}();
         τ′s = Vector{Float64}();
+        Kc′s = Vector{Float64}();
+        τc′s = Vector{Float64}();
         τ_Th = 0.;
+        τ_Th_c = 0.;
 
 
         isτCalculated = false
-        while !isτCalculated
-            N   = Int((max-min)*Nτ÷1);
+        while !isτCalculated 
+            N = Int((max-min)*Nτ÷1);
             x = LinRange(min, max, N);
             τs = 10 .^x;
 
-            Ks = K̂(τs, coeffs′s, Es′s, η);
+
+            Ks, Kcs= K̂c(τs, coeffs′s, Es′s, η);
 
             append!(τ′s, τs);
             append!(K′s, Ks);
 
-            # fig, ax = plt.subplots(ncols=2)
-            # ΔK = @. log10(Ks / Kgoe(τs));
-            # ax[1].plot(τs, Ks);
-            # ax[1].plot(τs, Kgoe.(τs), color="black", linestyle="dashed");
-            # ax[2].plot(τs, ΔK)
-            # plt.show()
-
+            append!(τc′s, τs);
+            append!(Kc′s, Kcs);
 
             try
-                τ_Th = τ̂_Th0(Ks, τs, η);
+                τ_Th = τ̂_Th0(Ks, τs);
+                τ_Th_c = τ̂_Th0(Kcs, τs);
                 isτCalculated = true;
             catch error
-                if isa(message, BoundsError)
+                if isa(error, BoundsError)
                     println("error: ", error);
-                    println("Nismo našli τ_Th, nastavimo  min = ", max, ",  in max = ", max +1);
+                    # println("❗ Nismo našli τ_Th, nastavimo  min = ", max, ",  in max = ", max +1, "🧯 🧯");
                     min = max;
                     max = max + 1;
                     isτCalculated = false;
+
+                    if max >= 5
+                        throw(error());
+                    end
                 else
-                    throw(error("Nekaj je šlo hudo narobe 😞:   $(error)"));
+                    println("Nekaj je šlo hudo narobe 😞:")
+                    println(error)
+                    println(2)
+                    throw(error());
                 end
             end
 
         end
 
         
-        return K′s, τ′s, τ_Th;
+        return τ′s, K′s, τ_Th, Kc′s, τ_Th_c;
     end
+
 
 
     """
@@ -363,77 +447,5 @@ using Statistics;
     ĝ(τ_Th:: Float64) = - log10(τ_Th);
 
 end
-
-
-
-# include("../../../Hamiltonians/H2.jl");
-# using .H2;
-
-# include("../../../Hamiltonians/H4.jl");
-# using .H4;
-
-# include("../../../Helpers/FermionAlgebra.jl");
-# using .FermionAlgebra;
-
-
-# using LinearAlgebra
-# using PyPlot;
-# using JLD2;
-
-
-
-# L = 6;
-
-# N=20000
-# x = LinRange(-2,0,300);
-# τ′s = 10 .^(x);
-
-# KGOE(τ) = 2τ − τ * log(1 + 2τ );
-# plot(τ′s, KGOE.(τ′s))
-# xscale("log");
-# yscale("log");
-
-# # q′s = [0.001,0.01,0.1, 0.2, 0.3, 0.5, 0.75,1., 1.5, 2.,5.];
-
-# # q′s = [0.005,0.05,0.15,0.25, 0.35, 0.4, 0.6];
-
-# # q′s = [0.7, 0.8, 0.9,1.75,2.5,3.,4.];
-
-
-# # q′s = [0.001, 0.005, 0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.6, 0.7, 0.75, 0.8, 0.9, 1., 1.25, 1.5, 1.75, 2., 2.5, 3., 4., 5.];
-# q′s = [0.005, 0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.6, 0.75, 0.8, 0.9, 1., 1.25, 1.5, 1.75, 2., 2.5, 3., 4., 5.];
-# # q′s = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.6, 0.75, 0.8, 0.9, 1., 1.25, 1.5, 1.75, 2., 2.5, 3., 4., 5.];
-
-# τ_th′s = Vector{Float64}();
-# for q in q′s
-#     println("----", q)
-
-#     # coeffs, Es =  SFF.K̂_data(N, L, q);
-#     # folder = jldopen("./SpectralFormFunctionCoeffitions_L$(L)_Iter$(N)_q$(q).jld2", "w");
-#     # folder["coeffs"] = coeffs;
-#     # folder["Es"] = Es;
-#     # close(folder)   
-
-#     folder = jldopen("./SpectralFormFunctionCoeffitions_L$(L)_Iter$(N)_q$(q).jld2", "r");
-#     Es = folder["Es"];
-#     coeffs = folder["coeffs"];
-#     close(folder)   
-
-
-#     K = map(τ -> SFF.K̂(τ, coeffs, Es), τ′s);
-#     # τ_th = SFF.τ̂_Th(K,τ′s);
-
-#     # push!(τ_th′s, τ_th);
-
-#     plot(τ′s, K, label="q=$(q)");
-# end
-
-# plot(τ′s, SFF.Kgoe.(τ′s), label="Kgoe", linestyle="dashed");
-
-# # plot(q′s, τ_th′s)
-# xscale("log");
-# yscale("log");
-# plt.legend();
-# plt.show();
 
 

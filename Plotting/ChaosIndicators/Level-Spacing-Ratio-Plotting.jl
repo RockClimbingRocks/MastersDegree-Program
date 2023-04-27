@@ -39,63 +39,40 @@ rcParams["savefig.bbox"] = "tight"
 
 rcParams["axes.prop_cycle"] = PyPlot.matplotlib.cycler(color=colors)
 
-function PlotLevelSpacingRatio(L′s:: Vector{Int},maxNumbOfIter′s:: Vector{Int})
-    fig, ax = plt.subplots()
-    qs = Vector{Float64}();
 
-    for (i,L) in enumerate(L′s) 
 
-        folder = jldopen("./Plotting/ChaosIndicators/Data/LevelSpacingRatio_L$(L)_Iter$(maxNumbOfIter′s[i]).jld2", "r");
-        r = folder["r"];
-        q′s = folder["q′s"];
-        close(folder);
-
-        qs = q′s
-
-        ax.plot(q′s, r, label=L"$L=%$(L)$")
-    end
-
-    ax.plot(qs, 0.3863 .* ones(Float64, length(qs)), color="black", linestyle="dashed")
-    ax.plot(qs, 0.5359 .* ones(Float64, length(qs)), color="black", linestyle="dashed")
-    
-    ax.legend()
-    ax.set_xscale("log")
-    ax.set_xlabel(L"q")
-    ax.set_ylabel(L"r")
-    display(fig)
-    plt.show()
-
+function GetFileName(L:: Int64, N:: Int64, q:: Float64, η:: Float64, connected:: Bool):: String
+    fileName:: String = "Hsyk_ChaosIndicators_L$(L)_Iter$(N)_q$(q)_eta$(η)"
+    return fileName;
 end
 
 
 
-function PlotLevelSpacingRatio_scaled(L′s:: Vector{Int},maxNumbOfIter′s:: Vector{Int})
-    r_poisson = 0.3863;
-    r_goe = 0.5359;
-    fig, ax = plt.subplots()
-    qs = Vector{Float64}();
+function PlotLevelSpacingRatio(L′s:: Vector{Int}, q′s:: Vector{Float64}, N′s:: Vector{Int}, ax)
 
     for (i,L) in enumerate(L′s) 
+        N = N′s[i];
 
-        folder = jldopen("./Plotting/ChaosIndicators/Data/LevelSpacingRatio_L$(L)_Iter$(maxNumbOfIter′s[i]).jld2", "r");
-        r = folder["r"];
-        q′s = folder["q′s"];
-        close(folder);
+        r′s = Vector{Float64}(undef, N);
+        for (j,q) in enumerate(q′s)
+            folder = jldopen("./Plotting/ChaosIndicators/Data/LevelSpacingRatio_L$(L)_Iter$(maxNumbOfIter′s[i]).jld2", "r");
+            rs = folder["r"];
+            close(folder);
 
-        qs = q′s
+            r′s[j] = mean(rs);
+        end
 
-        r_effective = @. (r-r_poisson)/(r_goe-r_poisson);
-        ax.plot(q′s, r_effective, label=L"$L=%$(L)$")
+        ax.plot(q′s, r′s, label=L"$L=%$(L)$")
     end
 
-    ax.plot(qs, ones(Float64, length(qs)), color="black", linestyle="dashed")
-    # ax.plot(qs, 0.5359 .* ones(Float64, length(qs)), color="black", linestyle="dashed")
+    ax.axhline(y = 0.3863, color="black", linestyle="dashed")
+    ax.axhline(y = 0.5359, color="black", linestyle="dashed")
     
-    ax.legend()
-    ax.set_xscale("log")
-    ax.set_xlabel(L"$q$")
-    ax.set_ylabel(L"$r$")
-    display(fig)
+    ax.legend();
+    ax.set_xscale("log");
+    ax.set_xlabel(L"q");
+    ax.set_ylabel(L"r");
+    
     plt.show()
 
 end
@@ -103,7 +80,17 @@ end
 
 
 
-L′s_lsr = [6,8,10,12];
-maxNumbOfIter_lsr = [500,500,500,500];
-PlotLevelSpacingRatio_scaled(L′s_lsr, maxNumbOfIter_lsr);
+function Fig1(L′s:: Vector{Int}, N′s:: Vector{Int}, q′s:: Vector{Float64})
+    fig, ax = plt.subplots()
 
+    PlotLevelSpacingRatio(L′s, q′s, N′s, ax);
+
+end
+
+x = LinRange(-3, 0, 15);
+q′s = round.(10 .^(x), digits=5);
+
+L′s = [8]
+N′s = [1000]
+
+Fig1(L′s, N′s, q′s)
