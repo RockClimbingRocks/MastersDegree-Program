@@ -93,6 +93,8 @@ module CI
 
     function GetThoulessTimeEndOthers(Es′s::Vector{Vector{Float64}}, Nτ::Int64, η::Float64)
         coeffs′s::Vector{Vector{Float64}} = map(Es -> SFF.ḡₙ_coeffs(Es), Es′s);
+        println(size(coeffs′s));
+        println(size(coeffs′s[1]))
 
 
         # for i in eachindex(Es′s)
@@ -117,15 +119,65 @@ module CI
 
 
 
-        τ′s, K′s, τ_Th, Kc′s, τ_Th_c =  SFF.τ̂_Th(Nτ, coeffs′s, Es′s, η)
+        τ′s, K′s, τ_Th, Kc′s, τ_Th_c, found_τTh, found_τThc =  SFF.τ̂_Th(Nτ, coeffs′s, Es′s, η);
         t_H = SFF.t̂_H(Es′s);
-        t_Th = SFF.t̂_Th(τ_Th, t_H) 
+        t_Th = SFF.t̂_Th(τ_Th, t_H);
         g = SFF.ĝ(τ_Th);
 
-        t_Th_c = SFF.t̂_Th(τ_Th_c, t_H) 
+        t_Th_c = SFF.t̂_Th(τ_Th_c, t_H); 
         g_c = SFF.ĝ(τ_Th_c);
     
-        return coeffs′s , τ′s, t_H, τ_Th, K′s, t_Th, g, τ_Th_c, Kc′s, t_Th_c, g_c;
+        return coeffs′s , τ′s, t_H, τ_Th, K′s, t_Th, g, τ_Th_c, Kc′s, t_Th_c, g_c, found_τTh, found_τThc;
     end
 
+
+    function GetK(Es′s::Vector{Vector{Float64}}, Nτ::Int64, η::Float64=0.4, n::Int64 = 5)
+        K1:: Vector{Float64} = zeros(Float64, Nτ); 
+        K̄2:: Vector{Complex} = zeros(Complex, Nτ); 
+        A:: Float64 = 0.;
+        B̄:: Complex = 0.;
+        Z:: Float64 = 0.;
+
+
+        min=-4;
+        max= 0;
+        N = Int((max-min)*Nτ÷1);
+        x = LinRange(min, max, N);
+        τs = 10 .^x;
+
+        for (e,Es) in enumerate(Es′s)
+            coeffs = ḡₙ_coeffs(Es, n);
+
+            K1_, K̄2_, A_, B̄_, Z_ = SFF.K̂_singleIteration(Es, coeffs, τs, η);
+
+            K1 .+= K1_ ./ numberOfIterations;
+            K̄2 .+= K̄2_ ./ numberOfIterations;
+            A  += A_  / numberOfIterations;
+            B̄  += B̄_  / numberOfIterations;
+            Z  += Z_  / numberOfIterations;
+        end
+
+        K2:: Vector{Float64} = @. abs(K̄2)^2;
+        B:: Float64 = abs(B̄)^2;
+
+        K:: Vector{Float64}  = @.  K1  / Z;
+        Kc:: Vector{Float64} = @. (K1 - A*K2/B) / Z;
+        return K, Kc;
+    end
+
+    function GetThoulessTimeEndOthers(Es′s::Vector{Vector{Float64}}, Nτ::Int64, η::Float64)
+        τ′s, K′s, τ_Th, Kc′s, τ_Th_c, found_τTh, found_τThc =  SFF.τ̂_Th(Nτ, coeffs′s, Es′s, η);
+        t_H = SFF.t̂_H(Es′s);
+        t_Th = SFF.t̂_Th(τ_Th, t_H);
+        g = SFF.ĝ(τ_Th);
+
+        t_Th_c = SFF.t̂_Th(τ_Th_c, t_H); 
+        g_c = SFF.ĝ(τ_Th_c);
+    
+        return coeffs′s , τ′s, t_H, τ_Th, K′s, t_Th, g, τ_Th_c, Kc′s, t_Th_c, g_c, found_τTh, found_τThc;
+    end
+
+
+
 end
+

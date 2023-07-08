@@ -511,12 +511,6 @@ function Plot_unfolding_η(L:: Int64, N:: Int64, q:: Float64, ax, connected:: Bo
         folder = jldopen("./Plotting/ChaosIndicators/Data/$(fileName).jld2", "r");
         coeffs′s = folder["coeffs′s"];
         Es′s = folder["Es′s"];
-        # K′s = folder["K′s"];
-        # τ′s = folder["τ′s"];
-        # τ_Th = folder["τ_Th"];
-        # t_Th = folder["t_Th"];
-        # t_H = folder["t_H"];
-        # g = folder["g"];
         close(folder);
 
         D = length(Es′s[1]);
@@ -535,8 +529,8 @@ function Plot_unfolding_η(L:: Int64, N:: Int64, q:: Float64, ax, connected:: Bo
         ḡₙ = Polynomial(coeffs);
 
         ε′s = ḡₙ.(Es);
-        ε̄ = mean(ε′s);      
-        Γ = std(ε′s); 
+        ε̄ = mean(ε′s);
+        Γ = std(ε′s);
 
         Essss= LinRange(minimum(Es), maximum(Es), 1000);
         if i==1

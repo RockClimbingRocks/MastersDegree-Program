@@ -1,4 +1,3 @@
-##
 using PyPlot;
 using LinearAlgebra;
 using JLD2;
@@ -41,66 +40,209 @@ rcParams["axes.prop_cycle"] = PyPlot.matplotlib.cycler(color=colors)
 
 
 
-function PlotInformationalEntropy(L′s:: Vector{Int},maxNumbOfIter′s:: Vector{Int}, ax)
+struct ReturnObject
+    Es:: Vector{Float64}
+    cis:: Tuple{Float64, Vector{Float64}, Vector{Float64}}
 
-    for (i,L) in enumerate(L′s) 
-        folder = jldopen("./Plotting/ChaosIndicators/Data/InformationalEntropy_L$(L)_Iter$(maxNumbOfIter′s[i]).jld2", "r");
-        S = folder["S"];
-        q′s = folder["q′s"];
-        close(folder);
-
-        ax.plot(q′s, S, label=L"$L=%$(L)$")
+    function ReturnObject(Es:: Vector{Float64}, cis:: Tuple{Float64, Vector{Float64}, Vector{Float64}})
+        new(Es, cis);
     end
+end
 
-    ax.legend()
-    ax.set_xscale("log")
-    ax.set_xlabel(L"$q$")
-    ax.set_ylabel(L"$S$")
+function GetDirectory(L:: Int64):: String
+    # fileName:: String = "Hsyk_ChaosIndicators_L$(L)_Iter$(N)_q$(q)_eta$(η)"
+    dir:: String = "./Plotting/ChaosIndicators/Data/L=$(L)/"
+    return dir;
+end
 
-    plt.show()
+function GetFileName(L:: Int64, N:: Int64, q:: Float64):: String
+    fileName:: String = "CI_L$(L)_Iter$(N)_q$(q)";
+    return fileName;
 end
 
 
-function PlotSₘofEₘ(L:: Int, q:: Float64, ax)
+function ReadData(L:: Int64, N:: Int64, q:: Float64)
+    dir:: String = GetDirectory(L);
+    fileName:: String = GetFileName(L, N, q)
+
+    folder = jldopen("$(dir)$(fileName).jld2", "r");
+    es_and_CIs = folder["Es_and_CIs"];
+    close(folder);
+
+    S = map(x -> x.cis[2], es_and_CIs);
+    return S;
+
+end
+
+
+
+function PlotEntanglementEntropyOfq(L′s:: Vector{Int}, N′s:: Vector{Int}, q′s:: Vector{Float64}, ax, deviationType:: String, η:: Float64 =0.5)
+    S_max = 1.;
+
+    Sgoe(L) = log(0.48*binomial(L,L÷2));
+    
+    αz = 0.9; αk = 0.2
+    k = (αz - αk)/(1- length(L′s));
+    n = αz-k
+    alphaa(x:: Int64) = k*x+n
+
+    for (i,L) in enumerate(L′s) 
+        N = N′s[i];
+
+        S′s = Vector{Float64}(undef, length(q′s));
+        σ′s_intrasample = Vector{Float64}(undef, length(q′s));
+        σ′s_intresample = Vector{Float64}(undef, length(q′s));
+
+        for (j,q) in enumerate(q′s)
+            S = ReadData(L, N, q)./Sgoe(L);
+
+            Ss:: Vector{Float64} = map(x -> mean(x), S);
+            σs::  Vector{Float64} = map(x -> std(x), S);
+
+            S′s[j] = mean(Ss);
+            σ′s_intrasample[j] = mean(σs);
+            σ′s_intresample[j] = std(Ss);
+        end
+        # ax.errorbar(q′s, E_q, yerr=σ_q, label=L"$L=%$(L)$", fmt=markers_line[i]);
+
+        σ′s = deviationType == "intrasample" ? σ′s_intrasample : σ′s_intresample;
+
+        ax.plot(q′s, S′s, markers_line[i], label=L"$L=%$(L)$", color=colors[i]);
+        ax.fill_between(q′s, S′s-σ′s, S′s+σ′s, alpha=alphaa(i), color=colors[i], label="Deviacija" );
+    end
+
+
+    ax.legend();
+    ax.set_xscale("log");
+    ax.set_xlabel(L"$q$");
+    ax.set_ylabel(L"$S(A:B)$");
+
+    ax.axhline(y=S_max, color="black", linestyle="dashed");
+
+end
+
+function PlotHistogram_OfEntanglementEntropy(L:: Int64, N:: Int64, q′s:: Vector{Float64}, ax, deviationType:: String, η:: Float64 =0.5)
+    Sgoe(L) = log(0.48*binomial(L,L÷2));
+
+    αz = 0.9; αk = 0.2
+    k = (αz - αk)/(1- length(q′s));
+    n = αz-k;
+    alphaa(x:: Int64) = k*x+n;
+    for (i,q) in enumerate(q′s)
+        S = ReadData(L, N, q)./Sgoe(L)
+
+        Ss:: Vector{Float64} = Vector{Float64}();
+        μ = 0.;
+        σ = 0.;
+
+        if deviationType == "intresample"
+            Ss= map(x -> mean(x), S);
+            μ = mean(Ss);
+            σ = std(Ss);
+        elseif deviationType == "intrasample"
+            j = Int(length(S)÷2)
+
+            Ss = S[j];
+            μ = mean(Ss);
+            σ = std(Ss);
+        end
+
+        ax.hist(Ss , bins= Int(√N*2÷ 3), density=true, alpha=alphaa(i), color=colors[i], label=L"$q=%$(q)$", zorder= 2);
+
+
+        println(μ)
+        println(σ)
+        x = LinRange(0.4, 1.1, 1000);
+        Normal(x) = exp(-0.5*(x-μ)^2 / σ^2) / (σ * √(2*π))
+        ax.plot(x, Normal.(x), zorder=3);   
+    end
+
+    ax.legend()
+    ax.set_xlabel(L"$S(A:B)$");
+    ax.set_title(L"$L = %$(L) $", y=0.8);
+
+end
+
+
+function Plot1( L′s:: Vector{Int64}, N′s:: Vector{Int64}, q′s:: Vector{Float64}, q′s_hist:: Vector{Float64}, deviationType:: String)
+    fig, ax = plt.subplots(ncols=2)
+
+    title = deviationType=="intresample" ? "Intresample deviacija" : "Intrasample deviacija"
+    fig.suptitle(title)
+
+    PlotEntanglementEntropyOfq(L′s, N′s, q′s, ax[1], deviationType);
+    PlotHistogram_OfEntanglementEntropy(L′s[end], N′s[end], q′s_hist, ax[2], deviationType);
+    plt.show();
+end
+
+
+
+qmin:: Int64 = -4; # set minimal value of q, in this case that would be 10^-4
+qmax:: Int64 = 0;  # set maximal value of q, in this case that would be 10^-4
+ρq:: Int64 = 6;
+
+Nq:: Int64 = Int((qmax - qmin)*ρq +1)
+x = LinRange(qmin, qmax, Nq);
+q′s = round.(10 .^(x), digits=5);
+is = [1,10,13,15,16,17,18,22];
+q′s_hist =q′s[is]#  map(x -> round(10^x, digits=5), LinRange(-3,0,15))[1:3:end];
+
+L′s = [8, 10, 12, 14, 16];
+N′s = [20_000, 5000, 1500, 900, 286];
+
+deviationType = "intrasample"
+Plot1(L′s, N′s, q′s,q′s_hist,deviationType);
+
+
+
+function PlotSₘofEₘ(L:: Int, N:: Int, q:: Float64, ax, η:: Float64)
+
+    dir:: String = GetDirectory(L);
+    fileName:: String = GetFileName(L, N, q)
+
+    folder = jldopen("$(dir)$(fileName).jld2", "r");
+    es_and_CIs = folder["Es_and_CIs"];
+    close(folder);
+
+    S = map(x -> x.cis[2], es_and_CIs);
+    E = map(x -> x.Es, es_and_CIs);
+
+    println(size(S))
+    println(size(E))
+
+    Sₘ = S[2];
+    Eₘ = E[2];
+
+
+    println(size(Sₘ))
+    println(size(Eₘ))
+
 
     D = binomial(L, L÷2);
     Sgoe = log(0.48*D);
 
-    folder = jldopen("./Plotting/ChaosIndicators/Data/InformationalEntropyAsFunctionOfEnergy_L$(L)_q$(q).jld2", "r");
-    Sₘ = folder["Sₘ"];
-    Eₘ = folder["Eₘ"];
-    close(folder);
-
-    ax.scatter(Eₘ/L, Sₘ./Sgoe);
-
+    ax.scatter(Eₘ./L, Sₘ./Sgoe);
     ax.axhline(y=1., color = "black", linestyle = "dashed");
 
 end
 
 
-function Fig1(L′s:: Vector{Int}, N′s:: Vector{Int})
-    fig, ax = plt.subplots();
-    PlotInformationalEntropy(L′s, N′s, ax)
 
-
-    plt.show()
-end
-
-
-function Fig2(L′s:: Vector{Int}, q′s:: Vector{Float64})
+function Plot2(L′s:: Vector{Int}, N′s:: Vector{Int}, q′s:: Vector{Float64}, η:: Float64=0.5)
     fig, ax = plt.subplots(nrows=length(L′s), ncols=length(q′s), sharex =true, sharey=true);
 
     for (i,L) in enumerate(L′s)
         println(L, "--------")
         D = binomial(L,L÷2);
-        η = 0.3;
-        i₁ = Int((D - (D*η)÷1)÷2);
-        i₂ = Int(i₁ + (D*η)÷1);
+        η_ = 0.3;
+        i₁ = Int((D - (D*η_)÷1)÷2);
+        i₂ = Int(i₁ + (D*η_)÷1);
 
+        N = N′s[i]
         
         for (j,q) in enumerate(q′s)
             println("   ", q)
-            PlotSₘofEₘ(L, q, ax[i,j])
+            PlotSₘofEₘ(L, N, q, ax[i,j], η)
 
             ax[i,j].set_title(L"$L = %$(L) \; \; q = %$(round(q, digits=5))$", y=0.85);
 
@@ -129,14 +271,20 @@ end
 
 
 
-L′s  = [8,10,12];
-maxNumbOfIter_ie = [200,200,200];
-Fig1(L′s,maxNumbOfIter_ie);
+qmin:: Int64 = -4; # set minimal value of q, in this case that would be 10^-4
+qmax:: Int64 = 0;  # set maximal value of q, in this case that would be 10^-4
+ρq:: Int64 = 6;
 
-# L′s = [10,12,14];
-# q′s = [0.001, 0.1, 0.15, 0.5, 1.];
-# # 0.1, 1.
-# Fig2(L′s, q′s);
+Nq:: Int64 = Int((qmax - qmin)*ρq +1)
+x = LinRange(qmin, qmax, Nq);
+q′s = round.(10 .^(x), digits=5);
+q′s_hist =q′s[1:2:end]#  map(x -> round(10^x, digits=5), LinRange(-3,0,15))[1:3:end];
+
+L′s = [8, 10, 12, 14, 16]
+N′s = [20_000, 5000, 1500, 900, 178]
+deviationType = "intresample"
+
+# Plot2(L′s, N′s, q′s);
 
 
 

@@ -239,8 +239,6 @@ function GetSpectralFormFactorData_For_DoifferentValuesOfη(L:: Int64, q′s:: V
     end
 end
 
-
-
 # include("../../Helpers/ChaosIndicators/PrivateFunctions/SpectralFormFactor.jl");
 # using .SFF
 
@@ -256,30 +254,6 @@ end
 
 
  
-
-# L = 8;
-# x = LinRange(-3, 0, 15);
-# q′s = round.(10 .^(x), digits=5);
-# N = 2000;
-# GetSpectralFormFactorData_C(L, q′s, N);
-
-
-
-# L = 10;
-# x = LinRange(-3, 0, 15);
-# q′s = round.(10 .^(x), digits=5);
-# N = 500;
-# GetSpectralFormFactorData_C(L, q′s, N);
-
-
-# L = 12;
-# x = LinRange(-3, 0, 15);
-# q′s = round.(10 .^(x), digits=5)[8:end];
-# N = 300;
-# GetSpectralFormFactorData_C(L, q′s, N);
-
-
-
 
 # L = 12;
 # x = LinRange(-3, 0, 15);
@@ -359,43 +333,8 @@ end
 
 
 
-x = LinRange(-3, 0, 15);
-q′s = round.(10 .^(x), digits=5);
-
-
-
-L = 8;
-N = 4000;
-for (i,q) in enumerate(q′s)
-    try
-        Do(L, N, q)
-    catch
-        println("ojooj, L=",L, "  q=",q );
-    end
-end
-
-
-# L = 10;
-# N = 2000;
-# for (i,q) in enumerate(q′s)
-#     try
-#         Do(L, N, q)
-#     catch
-#         println("ojooj, L=",L, "  q=",q );
-#     end
-# end
-
-
-# L = 12;
-# N = 1000;
-# for (i,q) in enumerate(q′s)
-#     try
-#         Do(L, N, q)
-#     catch
-#         println("ojooj, L=",L, "  q=",q );
-#     end
-# end
-
+# x = LinRange(-3, 0, 15);
+# q′s = round.(10 .^(x), digits=5);
 
 # L = 14;
 # N = 500;

@@ -1,10 +1,14 @@
-using PyPlot
+# using PyPlot
 using JLD2 
 using LinearAlgebra
 using LaTeXStrings
 using CurveFit
 using Statistics
 
+function d(x)
+    display(x);
+    println();
+end
 
 # include("../../Helpers/FermionAlgebra.jl");
 # using .FermionAlgebra;
@@ -18,50 +22,52 @@ using .H4
 include("../../Hamiltonians/Hgoe.jl")
 using .Hgoe
 
-include("../../Helpers/ChaosIndicators/ChaosIndicators.jl");
-using .ChaosIndicators;
-
 include("../../Helpers/OperationsOnHamiltonian.jl");
 using .OperationsOnH
 
 
-function GetNormalizationData(L′s:: Vector{Int}, maxNumbOfIter:: Int64, namespace:: Module)
-    numericalNorm = zeros(Float64, (length(L′s), maxNumbOfIter));
 
-    for (l, L) in enumerate(L′s)
-        println("\nline L: ", L);
-        for i=1:maxNumbOfIter
-            if mod(i,100)==0
-                print(" ", round(i/maxNumbOfIter *100, digits=2), "%..." );
-            end
-            params = namespace.Params(L);
-            H₂ = namespace.Ĥ(params);
+function GetDirectory()
+    # dir = "./Plotting/ChaosIndicators/Data/";
+    dir = "./";
+    return dir;
+end
 
-            numericalNorm[l,i] = OperationsOnH.OperatorNorm(H₂);
-        end
-
-        numericalNormByIteration = [ sum(numericalNorm[l,1:i])/i for i in 1:maxNumbOfIter ]
-
-        folder = jldopen("./Plotting/Normalization/Data/Normalization_$(namespace)_L$(L)_$(maxNumbOfIter).jld2", "w");
-        folder["numericalNorm"] = numericalNorm[l,:];
-        folder["numericalNormByIteration"] = numericalNormByIteration;
-        close(folder);
-
-    end
-    
+function GetFileName(L:: Int64, N:: Int64, nameSpace:: Module)
+    fileName = "Normalization_$(nameSpace)_L$(L)_N$(N)";
+    return fileName;
 end
 
 
-# L′s = [14];
-# maxNumbOfIter = 5000;
-# namespace = H2;
-# GetNormalizationData(L′s, maxNumbOfIter, namespace)
 
-L′s = [12];
-maxNumbOfIter = 5000;
-namespace = H4;
+function GetNormalizationData(L:: Int, maxNumbOfIter:: Int64, namespace:: Module)
+    numericalNorm = Vector{Float64}(undef, maxNumbOfIter);
 
-GetNormalizationData(L′s, maxNumbOfIter, namespace)
+    for i=1:maxNumbOfIter
+        if mod(i,100)==0
+            print(" ", round(i/maxNumbOfIter *100, digits=2), "%..." );
+        end
+        params = namespace.Params(L);
+        H₂ = namespace.Ĥ(params);
+
+        numericalNorm[i] = OperationsOnH.OperatorNorm(H₂);
+    end
+
+    # numericalNormByIteration = [ sum(numericalNorm[1:i])/i for i in 1:maxNumbOfIter ]
+
+    directory = GetDirectory();
+    fileName = GetFileName(L, maxNumbOfIter, namespace);
+
+    folder = jldopen("$(directory)$(fileName).jld2", "w");
+    folder["numericalNorm"]=numericalNorm;
+    close(folder);
 
 
+end
+
+L = 16;
+maxNumbOfIter = 10;
+namespace = H2;
+
+@time GetNormalizationData(L, maxNumbOfIter, namespace)
 

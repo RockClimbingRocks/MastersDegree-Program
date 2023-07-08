@@ -5,6 +5,7 @@ using CurveFit
 using Statistics
 using LaTeXStrings
 using PyPlot
+using ThreadsX
 
 # include("../../Helpers/FermionAlgebra.jl");
 # using .FermionAlgebra;
@@ -48,20 +49,36 @@ rcParams["axes.prop_cycle"] = PyPlot.matplotlib.cycler(color=colors)
 #------------------------------------------------------------------------------------------------------------------------
 
 
+
+function GetDirectory()
+    dir = "./Plotting/Normalization/Data/";
+    # dir = "./";
+    return dir;
+end
+
+function GetFileName(L:: Int, N:: Int, nameSpace:: Module)
+    fileName = "Normalization_$(nameSpace)_L$(L)_N$(N)";
+    return fileName;
+end
+
+
+
+
+
 function PlotNormalizationErrorWithRespectToTheLastObtainedValue(L′s:: Vector{Int64}, N′s:: Vector{Int64}, namespace, ax)
 
     for (i,L) in enumerate(L′s)
-        maxNumbOfIter = N′s[i]
-        folder = jldopen("./Plotting/Normalization/Data/Normalization_$(namespace)_L$(L)_$(maxNumbOfIter).jld2", "r");
+        N = N′s[i]
+        dir = GetDirectory();
+        fileName = GetFileName(L,N,namespace);
+
+        folder = jldopen("$(dir)$(fileName).jld2", "r");
         numericalNorm = folder["numericalNorm"];
-        numericalNormByIteration = folder["numericalNormByIteration"];
         close(folder);
 
-        # σ = std(numericalNorm)
-        # print(round(numericalNormByIteration[end], digits=4), "(1 + ", round(σ/numericalNormByIteration[end], digits=4), ")", " & ")
-        # normaOfL[i] = abs(numericalNormByIteration[end] .- 1);
+        numericalNormByIteration = [ mean(numericalNorm[1:i]) for i in 1:N ];
         
-        ax.plot(1:maxNumbOfIter-1, abs.(numericalNormByIteration[1:end-1] .- numericalNormByIteration[end]), label=L"$L=%$(L)$");
+        ax.plot(1:N-1, abs.(numericalNormByIteration[1:end-1] .- numericalNormByIteration[end]), label=L"$L=%$(L)$");
     end
 
 
@@ -79,17 +96,17 @@ end
 function PlotNormalizationErrorWithRespectToAnaliticalValue(L′s:: Vector{Int64}, N′s:: Vector{Int64}, namespace, ax)
 
     for (i,L) in enumerate(L′s)
-        maxNumbOfIter = N′s[i]
-        folder = jldopen("./Plotting/Normalization/Data/Normalization_$(namespace)_L$(L)_$(maxNumbOfIter).jld2", "r");
+        N = N′s[i]
+        dir = GetDirectory();
+        fileName = GetFileName(L,N,namespace);
+
+        folder = jldopen("$(dir)$(fileName).jld2", "r");
         numericalNorm = folder["numericalNorm"];
-        numericalNormByIteration = folder["numericalNormByIteration"];
         close(folder);
 
-        # σ = std(numericalNorm)
-        # print(round(numericalNormByIteration[end], digits=4), "(1 + ", round(σ/numericalNormByIteration[end], digits=4), ")", " & ")
-        # normaOfL[i] = abs(numericalNormByIteration[end] .- 1);
+        numericalNormByIteration = [ mean(numericalNorm[1:i]) for i in 1:N ];
         
-        ax.plot(1:maxNumbOfIter, abs.(numericalNormByIteration[1:end] .- 1.), label=L"$L=%$(L)$");
+        ax.plot(1:N, abs.(numericalNormByIteration[1:end] .- 1.), label=L"$L=%$(L)$");
     end
 
 
@@ -111,12 +128,15 @@ function PlotFitOfNormalizationError(L′s:: Vector{Int64}, N′s:: Vector{Int64
     σ′s = Vector{Float64}();
 
     for (i,L) in enumerate(L′s)
-        maxNumbOfIter = N′s[i]
-        folder = jldopen("./Plotting/Normalization/Data/Normalization_$(namespace)_L$(L)_$(maxNumbOfIter).jld2", "r");
+        N = N′s[i]
+        dir = GetDirectory();
+        fileName = GetFileName(L,N,namespace);
+
+        folder = jldopen("$(dir)$(fileName).jld2", "r");
         numericalNorm = folder["numericalNorm"];
-        numericalNormByIteration = folder["numericalNormByIteration"];
         close(folder);
 
+        
         # σ = std(numericalNorm)
         # print(round(numericalNormByIteration[end], digits=4), "(1 + ", round(σ/numericalNormByIteration[end], digits=4), ")", " & ")
         # normaOfL[i] = abs(numericalNormByIteration[end] .- 1);
@@ -160,14 +180,21 @@ end
 
 function PlotHistogramOfErrors(L′s:: Vector{Int64}, N′s:: Vector{Int64}, namespace:: Module, ax)
     
-    dict = Dict(1 => 1, 2 => 0.8, 3 => 0.6, 4 => 0.4, 5 => 0.2, 6 =>0.1);
+    k = 0.7 /(1- length(L′s));
+    n = 1-k
+    alpha(x:: Int64) = k*x+n
 
     for (i,L) in enumerate(L′s)
-        folder = jldopen("./Plotting/Normalization/Data/Normalization_$(namespace)_L$(L)_$(N′s[i]).jld2", "r");
+        N = N′s[i]
+        dir = GetDirectory();
+        fileName = GetFileName(L,N,namespace);
+
+        folder = jldopen("$(dir)$(fileName).jld2", "r");
         numericalNorm = folder["numericalNorm"];
-        numericalNormByIteration = folder["numericalNormByIteration"];
         close(folder);
-    
+
+        numericalNormByIteration = @time [ mean(numericalNorm[1:i]) for i in 1:N ];
+        
     
         numericalNormErrors = numericalNorm .- 1;
         
@@ -176,7 +203,7 @@ function PlotHistogramOfErrors(L′s:: Vector{Int64}, N′s:: Vector{Int64}, nam
         println(μ, "   ", σ);
     
         
-        ax.hist(numericalNormErrors , bins= Int(√N′s[i]*2÷ 3), density=true, alpha=dict[i], color=colors[i], label=L"$L=%$(L)$");
+        ax.hist(numericalNormErrors , bins= Int(√N′s[i]*2÷ 3), density=true, alpha=alpha(i), color=colors[i], label=L"$L=%$(L)$");
         # ax.axvline(x=μ, color="black", linestyle="dashed");
 
 
@@ -201,11 +228,16 @@ function PlotPlotStandardDeviationAndDispalcement_L(L′s:: Vector{Int64}, N′s
     σ′s = Vector{Float64}();
 
     for (i,L) in enumerate(L′s)
-        folder = jldopen("./Plotting/Normalization/Data/Normalization_$(namespace)_L$(L)_$(N′s[i]).jld2", "r");
+        N = N′s[i]
+        dir = GetDirectory();
+        fileName = GetFileName(L,N,namespace);
+
+        folder = jldopen("$(dir)$(fileName).jld2", "r");
         numericalNorm = folder["numericalNorm"];
-        numericalNormByIteration = folder["numericalNormByIteration"];
         close(folder);
-    
+
+        numericalNormByIteration = @time [ mean(numericalNorm[1:i]) for i in 1:N ];
+        
         numericalNormErrors = numericalNorm .- 1;
         
         μ = mean(numericalNormErrors);
@@ -240,9 +272,12 @@ function PlotPlotStandardDeviationAndDispalcement_D(L′s:: Vector{Int64}, N′s
     σ′s = Vector{Float64}();
 
     for (i,L) in enumerate(L′s)
-        folder = jldopen("./Plotting/Normalization/Data/Normalization_$(namespace)_L$(L)_$(N′s[i]).jld2", "r");
+        N = N′s[i]
+        dir = GetDirectory();
+        fileName = GetFileName(L,N,namespace);
+
+        folder = jldopen("$(dir)$(fileName).jld2", "r");
         numericalNorm = folder["numericalNorm"];
-        numericalNormByIteration = folder["numericalNormByIteration"];
         close(folder);
     
         numericalNormErrors = numericalNorm .- 1;
@@ -298,17 +333,15 @@ function Plot2(L′s:: Vector{Int64}, N′s:: Vector{Int64}, namespace:: Module)
     plt.show();
 end
 
+L′s = [4,6,8,10,12,14,16];
+NumberOfIterations′s = [10_000 for i in eachindex(L′s)];
+namespace = H2;    
+Plot1( L′s, NumberOfIterations′s, namespace);
 
 
-# L′s = [4,6,8,10,12];
-# NumberOfIterations′s = [5000, 5000, 5000, 5000, 5000];
+# L′s = [4,6,8,10,12,14,16];
+# N′s = [10_000 for i in eachindex(L′s)];
 # namespace = H2;    
-# Plot1( L′s, NumberOfIterations′s, namespace);
-
-
-# L′s = [4,6,8,10,12];
-# N′s = [5000, 5000, 5000, 5000, 5000];
-# namespace = H2
 # Plot2( L′s, N′s, namespace);
 
 

@@ -278,26 +278,23 @@ module SFF
         Kc:: Vector{Float64} = @. (K1 - A*K2/B) / Z;
         return K, Kc;
     end
-
-
-
     function K̂_singleIteration(E′s::Vector{Float64}, coeffs::Vector{Float64}, τ′s::Vector{Float64}, η:: Float64)
         ḡₙ = Polynomial(coeffs);
 
-        ε′s = ḡₙ.(E′s);    
-        ε̄ = mean(ε′s);    
+        ε′s = ḡₙ.(E′s);
+        ε̄ = mean(ε′s);
         Γ = std(ε′s); 
-
-        K1ᵢ(τ) = abs(sum( map(εᵢ ->     ρ̂(εᵢ, ε̄, Γ, η)*exp(-2*π*εᵢ*τ*1im), ε′s)))^2
-        K̄2ᵢ(τ) =     sum( map(εᵢ ->     ρ̂(εᵢ, ε̄, Γ, η)*exp(-2*π*εᵢ*τ*1im), ε′s))
-        Aᵢ     = abs(sum( map(εᵢ ->     ρ̂(εᵢ, ε̄, Γ, η)                   , ε′s)))^2;
-        B̄ᵢ     =     sum( map(εᵢ ->     ρ̂(εᵢ, ε̄, Γ, η)                   , ε′s));
-        Zᵢ     =     sum( map(εᵢ -> abs(ρ̂(εᵢ, ε̄, Γ, η))^2                , ε′s));
 
         if η==Inf
             println("To še naredi oziroma popravi!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" );
             throw(error("ni še implementirano!"));
         else
+            K1ᵢ(τ) = abs(sum( map(εᵢ ->     ρ̂(εᵢ, ε̄, Γ, η)*exp(-2*π*εᵢ*τ*1im), ε′s)))^2
+            K̄2ᵢ(τ) =     sum( map(εᵢ ->     ρ̂(εᵢ, ε̄, Γ, η)*exp(-2*π*εᵢ*τ*1im), ε′s))
+            Aᵢ     = abs(sum( map(εᵢ ->     ρ̂(εᵢ, ε̄, Γ, η)                   , ε′s)))^2;
+            B̄ᵢ     =     sum( map(εᵢ ->     ρ̂(εᵢ, ε̄, Γ, η)                   , ε′s));
+            Zᵢ     =     sum( map(εᵢ -> abs(ρ̂(εᵢ, ε̄, Γ, η))^2                , ε′s));
+
             return K1ᵢ.(τ′s), K̄2ᵢ.(τ′s), Aᵢ, B̄ᵢ, Zᵢ
         end
     end
@@ -336,6 +333,70 @@ module SFF
 
 
 
+    # """
+    # Thouless time  (in unphysical units).
+
+    # # Arguments
+    # - `K:: Vector{Float64}`: Vectro of Spectral Form Factor for different values of τ.
+    # - `Δτ:: Float64`: Steps of τ in which to search for Thoulless time.`
+    # """
+    # function τ̂_Th(Nτ::Int64, coeffs′s:: Vector{Vector{Float64}}, Es′s:: Vector{Vector{Float64}}, η:: Float64)        
+    #     min = -4;
+    #     max = 0;
+
+    #     K′s = Vector{Float64}();
+    #     τ′s = Vector{Float64}();
+    #     Kc′s = Vector{Float64}();
+    #     τc′s = Vector{Float64}();
+    #     τ_Th = 0.;
+    #     τ_Th_c = 0.;
+
+
+    #     isτCalculated = false
+    #     while !isτCalculated 
+    #         N = Int((max-min)*Nτ÷1);
+    #         x = LinRange(min, max, N);
+    #         τs = 10 .^x;
+
+
+    #         Ks, Kcs= K̂c(τs, coeffs′s, Es′s, η);
+
+    #         append!(τ′s, τs);
+    #         append!(K′s, Ks);
+
+    #         append!(τc′s, τs);
+    #         append!(Kc′s, Kcs);
+
+    #         try
+    #             τ_Th = τ̂_Th0(Ks, τs);
+    #             τ_Th_c = τ̂_Th0(Kcs, τs);
+    #             isτCalculated = true;
+    #         catch error
+    #             if isa(error, BoundsError)
+    #                 println("error: ", error);
+    #                 # println("❗ Nismo našli τ_Th, nastavimo  min = ", max, ",  in max = ", max +1, "🧯 🧯");
+    #                 min = max;
+    #                 max = max + 1;
+    #                 isτCalculated = false;
+
+    #                 if max >= 5
+    #                     throw(error());
+    #                 end
+    #             else
+    #                 println("Nekaj je šlo hudo narobe 😞:")
+    #                 println(error)
+    #                 println(2)
+    #                 throw(error());
+    #             end
+    #         end
+
+    #     end
+
+        
+    #     return τ′s, K′s, τ_Th, Kc′s, τ_Th_c;
+    # end
+
+
     """
     Thouless time  (in unphysical units).
 
@@ -350,53 +411,54 @@ module SFF
         K′s = Vector{Float64}();
         τ′s = Vector{Float64}();
         Kc′s = Vector{Float64}();
-        τc′s = Vector{Float64}();
         τ_Th = 0.;
         τ_Th_c = 0.;
 
 
-        isτCalculated = false
-        while !isτCalculated 
-            N = Int((max-min)*Nτ÷1);
-            x = LinRange(min, max, N);
-            τs = 10 .^x;
+        found_τTh  = true
+        found_τThc = true
 
+        N = Int((max-min)*Nτ÷1);
+        x = LinRange(min, max, N);
+        τs = 10 .^x;
 
-            Ks, Kcs= K̂c(τs, coeffs′s, Es′s, η);
+        Ks, Kcs= K̂c(τs, coeffs′s, Es′s, η);
 
-            append!(τ′s, τs);
-            append!(K′s, Ks);
+        append!(τ′s, τs);
+        append!(K′s, Ks);
+        append!(Kc′s, Kcs);
 
-            append!(τc′s, τs);
-            append!(Kc′s, Kcs);
-
-            try
-                τ_Th = τ̂_Th0(Ks, τs);
-                τ_Th_c = τ̂_Th0(Kcs, τs);
-                isτCalculated = true;
-            catch error
-                if isa(error, BoundsError)
-                    println("error: ", error);
-                    # println("❗ Nismo našli τ_Th, nastavimo  min = ", max, ",  in max = ", max +1, "🧯 🧯");
-                    min = max;
-                    max = max + 1;
-                    isτCalculated = false;
-
-                    if max >= 5
-                        throw(error());
-                    end
-                else
-                    println("Nekaj je šlo hudo narobe 😞:")
-                    println(error)
-                    println(2)
-                    throw(error());
-                end
+        try
+            τ_Th = τ̂_Th0(Ks, τs);
+            found_τTh = true;
+        catch error
+            if isa(error, BoundsError)
+                println("nismo najdl τ_Th")
+                found_τTh = false;
+            else
+                println("Nekaj je šlo hudo narobe :(    :")
+                println(error)
+                throw(error());
             end
+        end
 
+
+        try
+            τ_Th_c = τ̂_Th0(Kcs, τs);
+            found_τThc = true;
+        catch error
+            if isa(error, BoundsError)
+                found_τThc = false;
+                println("nismo najdl τ_Thc")
+            else
+                println("Nekaj je šlo hudo narobe :(    :")
+                println(error)
+                throw(error());
+            end
         end
 
         
-        return τ′s, K′s, τ_Th, Kc′s, τ_Th_c;
+        return τ′s, K′s, τ_Th, Kc′s, τ_Th_c, found_τTh, found_τThc;
     end
 
 

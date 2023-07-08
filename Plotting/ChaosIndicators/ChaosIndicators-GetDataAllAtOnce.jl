@@ -19,7 +19,7 @@ using .FermionAlgebra;
 include("../../Helpers/ChaosIndicators/ChaosIndicatorsFromSpectrume.jl");
 using .CI;
 
-
+x:: SparseMatrix
 
 function GetDirectory()
     dir = "./Plotting/ChaosIndicators/Data/";
@@ -39,6 +39,8 @@ function GetAllChaosIndicators(L:: Int64, N:: Int64, q:: Float64, η::Float64=0.
     S::   Vector{Vector{Float64}} = Vector{Vector{Float64}}(undef, N);
     EE::  Vector{Vector{Float64}} = Vector{Vector{Float64}}(undef, N);
     EE′:: Vector{Vector{Float64}} = Vector{Vector{Float64}}(undef, N);
+
+    δE_num = 0
 
     println()
     println("q=",q)
@@ -60,7 +62,10 @@ function GetAllChaosIndicators(L:: Int64, N:: Int64, q:: Float64, η::Float64=0.
         EE′[i] = CI.EntanglementEntropy(F.vectors, collect(1:2:L), collect(2:2:L), FermionAlgebra.IndecesOfSubBlock(L));
     end
 
-    coeffs′s , τ′s, t_H, τ_Th, K′s, t_Th, g, τ_Th_c, K′s_c, t_Th_c, g_c = CI.GetThoulessTimeEndOthers(Es′s, Nτ, η)
+    coeffs′s , τ′s, t_H, τ_Th, K′s, t_Th, g, τ_Th_c, K′s_c, t_Th_c, g_c, found_τTh, found_τThc  = CI.GetThoulessTimeEndOthers(Es′s, Nτ, η);
+
+    D = length(Es′s[1]);
+    δE_num = mean( map(Es -> mean(Es[Int(D÷4+1): Int((3*D)÷4+1)] .- Es[Int(D÷4): Int((3*D)÷4)]), Es′s)  )
 
     dir:: string = GetDirectory();
     fileName:: string = GetFileName(L,N,q,η)
@@ -70,31 +75,41 @@ function GetAllChaosIndicators(L:: Int64, N:: Int64, q:: Float64, η::Float64=0.
         r::   Vector{Float64}         = Vector{Float64}(undef, N);
         S::   Vector{Vector{Float64}} = Vector{Vector{Float64}}(undef, N);
         EE::  Vector{Vector{Float64}} = Vector{Vector{Float64}}(undef, N); comapact, symetric bipartition
-        EE′:: Vector{Vector{Float64}} = Vector{Vector{Float64}}(undef, N); odd and even bipartition
+        EE′:: Vector{Vector{Float64}} = Vector{Vector{Float64}}(undef, N); odd-and even bipartition
         
         and parameters for g:
         coeffs′s , τ′s, t_H, τ_Th, K′s, t_Th, g, τ_Th_c, K′s_c, t_Th_c, g_c
     ";
+
+    
 
     folder["r"] = r;
     folder["S"]  = S;
     folder["EE"]  = EE;
     folder["EE′"]  = EE′;
 
+    folder["δE_num"]  = δE_num;
 
     folder["coeffs′s"] = coeffs′s;
-    folder["τ′s"]  = τ′s;
-    folder["t_H"]  = t_H;
-    # Unconnected data
+    folder["τ′s"]  = τ′s;    
+
     folder["K′s"]  = K′s;
-    folder["τ_Th"] = τ_Th;
-    folder["t_Th"] = t_Th;
-    folder["g"]    = g;
-    #Connected date
     folder["K′s_c"] = K′s_c;
-    folder["τ_Th_c"] = τ_Th_c;
-    folder["t_Th_c"] = t_Th_c;
-    folder["g_c"] = g_c;
+
+    if found_τTh
+        folder["τ_Th"] = τ_Th;
+        folder["t_Th"] = t_Th;
+        folder["g"]    = g;        
+
+        folder["t_H"]  = t_H;
+    end
+
+    if found_τThc
+        folder["τ_Th_c"] = τ_Th_c;
+        folder["t_Th_c"] = t_Th_c;
+        folder["g_c"] = g_c;
+    end
+     
     close(folder)        
 end
 
@@ -104,15 +119,15 @@ x = LinRange(-3, 0, 15);
 q′s = round.(10 .^(x), digits=5);
 
 
-L = 8;
-N = 4000;
-for (i,q) in enumerate(q′s)
-    try
-        Do(L, N, q)
-    catch
-        println("ojooj, L=",L, "  q=",q );
-    end
-end
+# L = 8;
+# N = 4000;
+# for (i,q) in enumerate(q′s)
+#     try
+#         Do(L, N, q)
+#     catch
+#         println("ojooj, L=",L, "  q=",q );
+#     end
+# end
 
 
 # L = 10;

@@ -1,111 +1,85 @@
-using ITensors
+using SparseArrays;
+using LinearAlgebra;
+# using Combinatorics
+# using ITensors
+using Statistics
+using BenchmarkTools;
+using JLD2;
 
-# let
-#   i = Index(3)
-#   j = Index(5)
-#   k = Index(2)
-#   l = Index(7)
+include("../Helpers/FermionAlgebra.jl");
+using .FermionAlgebra;
 
-#   A = ITensor(i,j,k)
-#   B = ITensor(j,l)
+include("../Hamiltonians/H2.jl");
+using .H2;
 
-#   # Set elements of A
-#   A[i=>1,j=>1,k=>1] = 11.1
-#   A[i=>2,j=>1,k=>2] = -21.2
-#   A[k=>1,i=>3,j=>1] = 31.1  # can provide Index values in any order
-#   # ...
+include("../Hamiltonians/H4.jl");
+using .H4;
 
-#   # Contract over shared index j
-#   C = A * B
 
-#   @show hasinds(C,i,k,l) # = true
 
-#   D = randomITensor(k,j,i) # ITensor with random elements
+# a = randn(5000,5000)
 
-#   # Add two ITensors
-#   # must have same set of indices
-#   # but can be in any order
-#   R = A + D
 
-#   nothing
-# end
+# display(@benchmark begin a[1000:4000,1000:4000] = randn(3001,3001) end;);
+# println()
+# println()
+
+# display(@benchmark begin b = @view a; b[1000:4000,1000:4000] = randn(3001,3001) end)
 
 
 
 
+# folder = jldopen("aaaa.jld2", "w");
+#     folder["Es"] = Es;
+#     folder["rs"] = rs;
+#     folder["Ss"] = Ss;
+#     folder["EEs"] = EEs;
+#     folder["Ks"] = Ks;
+#     folder["τs"] = τs;
+#     folder["K̄s"] = Ks_smooth;
+#     folder["τ̄s"] = τs_smooth;
+#     folder["Kcs"] = Kcs;
+#     folder["τ_th"] = τ_Th;
+#     folder["t_H"] = t_H;
+#     folder["t_Th"] = t_Th;
+#     folder["g"] = g;
+# close(folder);      
 
-# i = Index(10)           # index of dimension 10
-# j = Index(20)           # index of dimension 20
-# M = randomITensor(i,j)  # random matrix, indices i,j
-# U,S,V = svd(M)        # compute SVD with i as row index
+L′s = [1,2,3,4];
+η′s = [0.1,0.2];
 
 
-
-# @show U      
-# @show S      
-# @show V      
-ITensors.enable_debug_checks()
-
-# let 
-#     N = 10
-#     sites = siteinds("S=1",N)
-
-#     @show sites[1]
-
-#     # Input operator terms which define
-#     # a Hamiltonian matrix, and convert
-#     # these terms to an MPO tensor network
-#     # (here we make the 1D Heisenberg model)
-#     os = OpSum()
-#     for j=1:N-1
-#         os += "Sz",j,"Sz",j+1
-#         os += 0.5,"S+",j,"S-",j+1
-#         os += 0.5,"S-",j,"S+",j+1
+# jldopen("example.jld2", "w") do file
+#     for L in L′s
+#         MyGroupL = JLD2.Group(file, "L=$L");
+#         MyGroupL["xxx"] = 42;
 #     end
-#     H = MPO(os,sites)
+# end
 
-#     @show H
+# jldopen("exampleqssss.jld2", "w") do file
+#     for L in L′s
+#         file["L=$L/xxx1/xx"] = 44;
+#         file["L=$L/xxx2/xx"] = 45;
+#     end
+# end
 
-#     # Create an initial random matrix product state
-#     psi0 = randomMPS(sites)
+# jldopen("example.jld2", "r") do file
+#     for L in L′s
+#         # MyGroupL = JLD2.Group(file, "L=$L");
+#         xxx1 = file["L=$L/xxx1/xx"];
+#         xxx2 = file["L=$L/xxx2/xx"];
 
-#     # Plan to do 5 passes or 'sweeps' of DMRG,
-#     # setting maximum MPS internal dimensions
-#     # for each sweep and maximum truncation cutoff
-#     # used when adapting internal dimensions:
-#     nsweeps = 5
-#     maxdim = [10,20,100,100,200]
-#     cutoff = 1E-10
-
-#     # Run the DMRG algorithm, returning energy
-#     # (dominant eigenvalue) and optimized MPS
-#     energy, psi = dmrg(H,psi0; nsweeps, maxdim, cutoff)
-#     println("Final energy = $energy")
+#         println(xxx1);
+#         println(xxx2);
+#     end
 # end
 
 
+# jldopen("example.jld2", "w") do file
+#     for L in L′s
+#         MyGroupL = JLD2.Group(file, "L=$L");
 
-let 
-  N= 4
-  s = "S=1/2";
-  sites = siteinds(s,N)
+#         MyGroupL["xxx"] = 42;
+#     end
+# end
 
-
-  a⁺_op = [0 0; 1 0]
-
-  ITensors.op(::OpName"a⁺",::SiteType"S=1/2") = [0 0; 1 0];
-  ITensors.op(::OpName"a", ::SiteType"S=1/2") = [0 1; 0 0];
-
-  os = opSum()
-  for i in 1:N
-    os += "a⁺", i,  "a", i+1 
-    os += "a", i,  "a⁺", i+1 
-  end
-
-  H = MPO(os,sites);
-
-  @show H;
-
-  
-
-end
