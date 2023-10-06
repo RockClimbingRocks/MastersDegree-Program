@@ -22,8 +22,11 @@ using .H4
 include("../../Hamiltonians/Hgoe.jl")
 using .Hgoe
 
-include("../../Helpers/OperationsOnHamiltonian.jl");
-using .OperationsOnH
+
+function OperatorNorm(H) 
+    AverageValueOfOperator(H) = tr(H) / size(H)[1]
+    return √(AverageValueOfOperator(H^2) - AverageValueOfOperator(H)^2);
+end
 
 
 
@@ -50,7 +53,7 @@ function GetNormalizationData(L:: Int, maxNumbOfIter:: Int64, namespace:: Module
         params = namespace.Params(L);
         H₂ = namespace.Ĥ(params);
 
-        numericalNorm[i] = OperationsOnH.OperatorNorm(H₂);
+        numericalNorm[i] = OperatorNorm(H₂);
     end
 
     # numericalNormByIteration = [ sum(numericalNorm[1:i])/i for i in 1:maxNumbOfIter ]

@@ -4,9 +4,7 @@
 deps/deps.jl
 
 
-
-Images/
-Data/
+DATA/
 
 *.code-workspace
 *.jld2
