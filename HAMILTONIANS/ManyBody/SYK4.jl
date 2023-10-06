@@ -1,10 +1,10 @@
-module H4
+module SYK4
     using SparseArrays;
     using Distributions;
     using LinearAlgebra;
 
-    include("../Helpers/FermionAlgebra.jl");
-    using .FermionAlgebra; 
+    include("../../Helpers/FermionAlgebra.jl");
+    using .FermionAlgebra;
 
     struct Params
         L:: Int64;
@@ -142,18 +142,3 @@ module H4
 
 
 end
-
-
-
-
-# include("../Helpers/FermionAlgebra.jl");
-# using .FermionAlgebra;
-
-
-# L= 16;
-# params = H4.Params(L)
-
-# # H = @time H4.Ĥ(params)
-# H2 = @time H4.Ĥ2(params)
-
-

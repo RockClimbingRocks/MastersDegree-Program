@@ -19,8 +19,7 @@ using .H4
 include("../../Helpers/ChaosIndicators/ChaosIndicators.jl");
 using .ChaosIndicators;
 
-include("../../Helpers/OperationsOnHamiltonian.jl");
-using .OperationsOnH
+
 
 colors = ["dodgerblue","darkviolet","limegreen","indianred","darkblue","magenta","aqua","deeppink","dimgray","red","royalblue","slategray","black","lightseagreen","forestgreen","palevioletred"]
 markers = ["o","x","v","*","H","D","s","d","P","2","|","<",">","_","+",","]
