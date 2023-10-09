@@ -231,19 +231,3 @@ module SYK4
 
 end
 
-
-
-# using BenchmarkTools;
-# L=10
-
-# params = SYK4.Params(L) 
-# # U = a.U;
-
-# # H1 = @time SYK4.Ĥ(params)
-# # H2 = @time SYK4.Ĥ2(params)
-
-# H1 = @btime SYK4.Ĥ(SYK4.Params(L) )
-# H2 = @btime SYK4.Ĥ2(SYK4.Params(L) )
-
-
-# display(H1 ≈ H2);
