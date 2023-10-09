@@ -3,7 +3,7 @@ module OBSYK2
     using LinearAlgebra;
     using StaticArrays;
 
-    include("../../Helpers/FermionAlgebra.jl");
+    include("../FermionAlgebra.jl");
     using .FermionAlgebra;
 
 

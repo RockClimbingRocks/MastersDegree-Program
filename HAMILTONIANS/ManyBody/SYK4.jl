@@ -3,7 +3,7 @@ module SYK4
     using Distributions;
     using LinearAlgebra;
 
-    include("../../Helpers/FermionAlgebra.jl");
+    include("../FermionAlgebra.jl");
     using .FermionAlgebra;
 
     struct Params
@@ -82,6 +82,31 @@ module SYK4
     end
 
 
+
+    function GetSignOfOperatorPermutation2(i_cre, j_cre, k_anh, l_anh, state)
+        # println("($(i_cre), $(j_inh)):", state)
+
+        sign_l = isodd(sum(@view(state[1:l_anh-1]))) ? -1 : 1;
+        state[l_anh] = 0;
+        sign_k = isodd(sum(@view(state[1:k_anh-1]))) ? -1 : 1;
+        state[k_anh] = 0;
+        sign_j = isodd(sum(@view(state[1:j_cre-1]))) ? -1 : 1;
+        state[j_cre] = 1;
+
+        sign_i = isodd(sum(@view(state[1:i_cre-1]))) ? -1 : 1;
+
+        return sign_l*sign_k*sign_j*sign_i;
+    end
+
+
+
+
+    # function GetSignOfOperatorPermutation2(i_cre, j_cre, k_inh, l_inh, state)
+    #     sign1 = isodd(sum(@view(state[min(i_cre, j_inh)+1: max(i_cre, j_inh)-1]))) ? -1 : 1
+    #     return ;
+    # end
+    
+
     function sign(ket:: Int64, i_cre:: Int64, j_cre:: Int64, k_inh:: Int64, l_inh:: Int64, params:: Params)
         ket_fockSpace = FermionAlgebra.WriteStateInFockSpace(ket, params.L, params.S)
 
@@ -89,6 +114,16 @@ module SYK4
         sign = GetSignOfOperatorPermutation(i_cre, j_cre, k_inh, l_inh, reverse(ket_fockSpace));
         return sign;
     end
+
+    function sign2(ket:: Int64, i_cre:: Int64, j_cre:: Int64, k_inh:: Int64, l_inh:: Int64, ket_fockSpace::Vector{Int}, S)
+        FermionAlgebra.WriteStateInFockSpace!(ket, ket_fockSpace, S);
+        # We need to reverse "ket_fockSpace" because program starts counting postions from left to right 
+        reverse!(ket_fockSpace)
+
+        sign = GetSignOfOperatorPermutation2(i_cre, j_cre, k_inh, l_inh, ket_fockSpace);
+        return sign;
+    end
+    
 
 
     global function Ĥ(params:: Params, isSparse:: Bool = true) 
@@ -102,7 +137,7 @@ module SYK4
         id = FermionAlgebra.GetMatrixRepresentationOfOperator("id", params.S, isSparse);
         
         normalization = AnaliticalNormOfHamiltonianAveraged(params);
-        ind = FermionAlgebra.IndecesOfSubBlock(L, params.S);
+        ind = FermionAlgebra.IndecesOfSubBlock(L);
 
 
         rows = Vector{Int64}();
@@ -128,7 +163,7 @@ module SYK4
 
             rows_ij = map(elm -> elm[1], matrixElements); 
             cols_ij = map(elm -> elm[2], matrixElements); 
-            vals_ij = map(elm -> sign(ind[elm[2]]-1, i, j, k, l, params) * 4*params.U[L+1-i,L+1-j,L+1-k,L+1-l] ./ normalization, matrixElements); 
+            vals_ij = map(elm -> sign(ind[elm]-1, i, j, k, l, params) * 4*params.U[L+1-i,L+1-j,L+1-k,L+1-l] ./ normalization, cols_ij); 
 
 
             append!(rows, (i,j) == (k,l) ? rows_ij : vcat(rows_ij, cols_ij));
@@ -141,4 +176,74 @@ module SYK4
     end 
 
 
+    global function Ĥ2(params:: Params, isSparse:: Bool = true) 
+        L = params.L;
+        D = binomial(L,L÷2)
+
+        opᵢ = FermionAlgebra.GetMatrixRepresentationOfOperator(GetTypeOfOperatorOnSite("i"), params.S, isSparse);
+        opⱼ = FermionAlgebra.GetMatrixRepresentationOfOperator(GetTypeOfOperatorOnSite("j"), params.S, isSparse);
+        opₖ = FermionAlgebra.GetMatrixRepresentationOfOperator(GetTypeOfOperatorOnSite("k"), params.S, isSparse);
+        opₗ = FermionAlgebra.GetMatrixRepresentationOfOperator(GetTypeOfOperatorOnSite("l"), params.S, isSparse);
+        id = FermionAlgebra.GetMatrixRepresentationOfOperator("id", params.S, isSparse);
+        
+        normalization = AnaliticalNormOfHamiltonianAveraged(params);
+        ind = FermionAlgebra.IndecesOfSubBlock(L);
+
+        tmp_storingVector = Vector{Int}(undef,L);
+
+        rows = Vector{Int64}();
+        cols = Vector{Int64}();
+        vals = Vector{Float64}();
+
+
+        l̂(i,j,k) = i==k ? j : k+1;
+
+        cᵢ⁺cⱼ⁺cₖcₗ = fill(id, L); 
+        # Interection term
+        for i=1:L, j=i+1:L, k=i:L, l= l̂(i,j,k):L
+
+            # Order of those products of operators oisimporattn so dont change it!
+            cᵢ⁺cⱼ⁺cₖcₗ[i] *= opᵢ;
+            cᵢ⁺cⱼ⁺cₖcₗ[j] *= opⱼ;
+            cᵢ⁺cⱼ⁺cₖcₗ[k] *= opₖ;
+            cᵢ⁺cⱼ⁺cₖcₗ[l] *= opₗ;
+
+            #We are doing this because we need to determine a sign for each contribution
+            # matrix = foldl(kron, cᵢ⁺cⱼ⁺cₖcₗ)[ind,ind]
+            matrixElements = findall(x -> x==1 , foldl(kron, cᵢ⁺cⱼ⁺cₖcₗ)[ind,ind] )
+
+            rows_ij = map(elm -> elm[1], matrixElements); 
+            cols_ij = map(elm -> elm[2], matrixElements); 
+            vals_ij = map(elm -> sign2(ind[elm[2]]-1, i, j, k, l, tmp_storingVector, params.S) * 4*params.U[L+1-i,L+1-j,L+1-k,L+1-l] ./ normalization, matrixElements); 
+
+
+            append!(rows, (i,j) == (k,l) ? rows_ij : vcat(rows_ij, cols_ij));
+            append!(cols, (i,j) == (k,l) ? cols_ij : vcat(cols_ij, rows_ij));
+            append!(vals, (i,j) == (k,l) ? vals_ij : vcat(vals_ij, conj.(vals_ij)));
+
+            cᵢ⁺cⱼ⁺cₖcₗ[i] = cᵢ⁺cⱼ⁺cₖcₗ[j] = cᵢ⁺cⱼ⁺cₖcₗ[k] = cᵢ⁺cⱼ⁺cₖcₗ[l] = id;
+        end
+        
+        
+        return isSparse ? sparse(rows, cols, vals, D, D) : Matrix(sparse(rows, cols, vals, D, D));
+    end 
+
+
 end
+
+
+
+# using BenchmarkTools;
+# L=10
+
+# params = SYK4.Params(L) 
+# # U = a.U;
+
+# # H1 = @time SYK4.Ĥ(params)
+# # H2 = @time SYK4.Ĥ2(params)
+
+# H1 = @btime SYK4.Ĥ(SYK4.Params(L) )
+# H2 = @btime SYK4.Ĥ2(SYK4.Params(L) )
+
+
+# display(H1 ≈ H2);

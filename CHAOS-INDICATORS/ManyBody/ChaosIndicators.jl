@@ -56,7 +56,7 @@ end
 
 # using PyPlot;
 
-# p1 = [sort(rand(1000)) for _ in 1:500];
+# p1 = [sort(rand(1000)) for _ in 1:1000];
 # p2 = 10 .^ LinRange(-4,0,100);
 # # p2 = 0.3;
 # params = [p1, p2];
