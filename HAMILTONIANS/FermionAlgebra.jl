@@ -1,7 +1,8 @@
 module FermionAlgebra
     using SparseArrays;
     using LinearAlgebra;
-    using Combinatorics
+    using Combinatorics;
+    using StaticArrays;
 
     function ĉ(S:: Real)
         dim = Int(2*S + 1);
@@ -71,8 +72,16 @@ module FermionAlgebra
     global function WriteStateInFockSpace(index:: Int64, L:: Int64, S:: Real):: Vector{Int64}
         state = zeros(Int64, L);
         digits!(state, index, base=Int(2*S+1));
+        # digits(state, index, base=Int(2*S+1));
         return state
-    end    
+    end   
+    
+    """
+    Function returns a state (defined as a number 'index') written in Fock space.
+    """
+    global function WriteStateInFockSpace!(index:: Int64, state::Vector{Int}, S:: Real):: Vector{Int64}
+        digits!(state, index, base=Int(2*S+1));
+    end   
     
 end
 

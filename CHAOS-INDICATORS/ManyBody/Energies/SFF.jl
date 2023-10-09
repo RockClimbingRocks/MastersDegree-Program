@@ -108,7 +108,7 @@ module SFF
     - `ρs′s::Vector{Vector{Float64}}: Calculated values of Gaussian filter.`
     """
     function Z_A_B(ρs′s)
-        Z = mean(    map( ρs -> sum(@. abs(ρs)^2), ρs′s) );
+        Z = mean(    map( ρs -> sum( abs.(ρs).^2), ρs′s) );
         A = mean(  abs.( map(ρs -> sum(ρs), ρs′s) ).^2 );
         B =  abs(    mean( map(ρs -> sum(ρs), ρs′s) ) )^2
 
@@ -138,7 +138,7 @@ module SFF
         Zρ_abs2_avg = mean(@. abs(Zρs)^2);
 
         K = Zρ_abs2_avg/Z
-        Kc = (Zρ_abs2_avg + A*Zρ_avg_abs2/B)/Z
+        Kc = (Zρ_abs2_avg - A*Zρ_avg_abs2/B)/Z
         
         return K, Kc
     end

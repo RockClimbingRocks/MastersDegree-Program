@@ -4,11 +4,8 @@ module SYK2
     using LinearAlgebra;
     using StaticArrays;
 
-    include("../../Helpers/FermionAlgebra.jl");
+    include("../FermionAlgebra.jl");
     using .FermionAlgebra;
-
-    include("../../Helpers/OperationsOnHamiltonian.jl");
-    using .OperationsOnH;
 
 
     struct Params
@@ -48,7 +45,7 @@ module SYK2
     end
 
 
-    global function AnaliticalNormOfHamiltonian(params)
+    function AnaliticalNormOfHamiltonian(params)
         function AnaliticalExpressionForAverageOfSqueredHamiltonian(params)
             stateNumbers = FermionAlgebra.IndecesOfSubBlock(params.L) .- 1;
             states = FermionAlgebra.WriteStateInFockSpace.(stateNumbers, params.L, params.S);
@@ -126,7 +123,7 @@ module SYK2
     end
 
 
-    global function AnaliticalNormOfHamiltonianAveraged(params:: Params, N::Int64 = Int(params.L÷2))
+    function AnaliticalNormOfHamiltonianAveraged(params:: Params, N::Int64 = Int(params.L÷2))
         if N==0 || N==params.L
             return 1.
         end
@@ -137,10 +134,8 @@ module SYK2
 
 
 
-
-    function GetSignOfOperatorPermutation(i_cre, j_inh, state)
+    function GetSignOfOperatorPermutation1(i_cre, j_inh, state)
         # println("($(i_cre), $(j_inh)):", state)
-
         sign_inh = isodd(sum(state[1:j_inh-1])) ? -1 : 1;
         state[j_inh] = 0;
         sign_cre = isodd(sum(state[1:i_cre-1])) ? -1 : 1;
@@ -148,15 +143,30 @@ module SYK2
         return sign_inh*sign_cre;
     end
 
-    function sign(ket:: Int64, opPos_i:: Int64, opPos_j:: Int64, params:: Params)
-        ket_fockSpace = FermionAlgebra.WriteStateInFockSpace(ket, params.L, params.S)
-
+    function sign1(ket:: Int64, opPos_i:: Int64, opPos_j:: Int64, params:: Params)
+        ket_fockSpace = FermionAlgebra.WriteStateInFockSpace(ket, params.L, params.S);
         # We need to reverse "ket_fockSpace" because program starts counting postions from left to right 
-        sign = GetSignOfOperatorPermutation(opPos_i, opPos_j, reverse(ket_fockSpace));
+        sign = GetSignOfOperatorPermutation1(opPos_i, opPos_j, reverse(ket_fockSpace));
         return sign;
     end
 
-    global function Ĥ(params:: Params, N::Int64 =Int(params.L÷2),  isSparse:: Bool = true) 
+
+
+    function GetSignOfOperatorPermutation2(i_cre, j_inh, state)
+        return isodd(sum(@view(state[i_cre+1 : j_inh-1]))) ? -1 : 1;
+    end
+
+    function sign2(ket:: Int64, opPos_i:: Int64, opPos_j:: Int64, ket_fockSpace::Vector{Int}, S)
+        FermionAlgebra.WriteStateInFockSpace!(ket, ket_fockSpace, S);
+        # We need to reverse "ket_fockSpace" because program starts counting postions from left to right 
+        reverse!(ket_fockSpace)
+
+        sign = GetSignOfOperatorPermutation2(opPos_i, opPos_j, ket_fockSpace);
+        return sign;
+    end
+    
+
+    global function Ĥ1(params:: Params, N::Int64 =Int(params.L÷2),  isSparse:: Bool = true) 
         L = params.L;
         D = binomial(L,N)
 
@@ -166,8 +176,6 @@ module SYK2
         
         normalization = AnaliticalNormOfHamiltonianAveraged(params, N);
         ind = FermionAlgebra.IndecesOfSubBlock(L,N);
-        println("ind = ", ind);
-        println("norm= ", normalization)
 
         rows = Vector{Int64}();
         cols = Vector{Int64}();
@@ -181,12 +189,13 @@ module SYK2
             cᵢ⁺cⱼ[i] *= opᵢ;
             cᵢ⁺cⱼ[j] *= opⱼ;
 
-            matrixElements = findall(x -> x==1 ,foldl(kron, cᵢ⁺cⱼ)[ind,ind] );  
-            
+            # println("-----------");
+            matrixElements = findall(x -> x==1 , foldl(kron, cᵢ⁺cⱼ)[ind,ind] );  
+            # println()
             rows_ij = map(elm -> elm[1], matrixElements); 
             cols_ij = map(elm -> elm[2], matrixElements); 
-            vals_ij = map(elm -> sign(ind[elm[2]]-1, i, j, params) * params.t[L+1-i,L+1-j] / normalization, matrixElements); 
-
+            vals_ij = map(elm -> sign1(ind[elm[2]]-1, i, j, params) * params.t[L+1-i,L+1-j] / normalization, matrixElements); 
+            # println()
             append!(rows, i==j ? rows_ij : vcat(rows_ij, cols_ij));
             append!(cols, i==j ? cols_ij : vcat(cols_ij, rows_ij));
             append!(vals, i==j ? vals_ij : vcat(vals_ij, conj.(vals_ij)));
@@ -198,4 +207,142 @@ module SYK2
         return isSparse ? sparse(rows, cols, vals, D, D) : Matrix(sparse(rows, cols, vals, D, D));
     end
 
+
+    global function Ĥ2(params:: Params, N::Int64 =Int(params.L÷2),  isSparse:: Bool = true) 
+        L = params.L;
+        D = binomial(L,N)
+
+        opᵢ = FermionAlgebra.GetMatrixRepresentationOfOperator(GetTypeOfOperatorOnSite("i"), params.S, isSparse);
+        opⱼ = FermionAlgebra.GetMatrixRepresentationOfOperator(GetTypeOfOperatorOnSite("j"), params.S, isSparse);
+        id = FermionAlgebra.GetMatrixRepresentationOfOperator("id", params.S, isSparse);
+
+        ind = FermionAlgebra.IndecesOfSubBlock(L,N);
+
+        rows = Vector{Int64}();
+        cols = Vector{Int64}();
+        vals = Vector{Float64}();
+
+        tmp_storingVector = Vector{Int}(undef,L);
+    
+        # Hopping term
+        cᵢ⁺cⱼ= fill(id, L); 
+        for i=1:L, j=i:L
+            # Order of those products of operators is importana so dont change it!
+            cᵢ⁺cⱼ[i] *= opᵢ;
+            cᵢ⁺cⱼ[j] *= opⱼ;
+
+            # println("-----------");
+            matrixElements = findall(x -> x==1 ,foldl(kron, cᵢ⁺cⱼ)[ind,ind] );  
+            # println()
+            
+            rows_ij = map(elm -> elm[1], matrixElements); 
+            cols_ij = map(elm -> elm[2], matrixElements); 
+            vals_ij = map(elm -> sign2(ind[elm[2]]-1, i, j, tmp_storingVector, params.S)*params.t[L+1-i,L+1-j] , matrixElements); 
+
+            append!(rows, i==j ? rows_ij : vcat(rows_ij, cols_ij));
+            append!(cols, i==j ? cols_ij : vcat(cols_ij, rows_ij));
+            append!(vals, i==j ? vals_ij : vcat(vals_ij, conj.(vals_ij)));
+
+            cᵢ⁺cⱼ[i] = cᵢ⁺cⱼ[j] = id;
+        end
+        
+        normalization = AnaliticalNormOfHamiltonianAveraged(params, N);
+        vals ./= normalization
+
+        return isSparse ? sparse(rows, cols, vals, D, D) : Matrix(sparse(rows, cols, vals, D, D));
+    end
+
+
+
 end
+
+
+
+# using BenchmarkTools
+# L = 16
+
+# x= SYK2.Params(L)
+
+# H1 = @time SYK2.Ĥ1(x)
+# println("   ")
+# println("   ")
+# println("   ")
+# println("   ")
+# H2 = @time SYK2.Ĥ2(x)
+
+
+# display(H1 ≈ H2);
+
+
+# include("../FermionAlgebra.jl");
+# using .FermionAlgebra;
+
+# using BenchmarkTools
+
+
+# function GetSignOfOperatorPermutation1(i_cre, j_inh, state)
+#     # println("($(i_cre), $(j_inh)):", state)
+
+#     sign_inh = isodd(sum(state[1:j_inh-1])) ? -1 : 1;
+#     state[j_inh] = 0;
+#     sign_cre = isodd(sum(state[1:i_cre-1])) ? -1 : 1;
+
+#     return sign_inh*sign_cre;
+# end
+
+# function GetSignOfOperatorPermutation2(i_cre, j_inh, state)
+#     return isodd(sum(@view(state[min(i_cre, j_inh)+1: max(i_cre, j_inh)-1]))) ? -1 : 1;
+# end
+
+
+
+
+# # function sign1(ket:: Int64, opPos_i:: Int64, opPos_j:: Int64, L, S)
+# #     @time ket_fockSpace = FermionAlgebra.WriteStateInFockSpace(ket, L, S);
+# #     println(ket_fockSpace)
+# #     # We need to reverse "ket_fockSpace" because program starts counting postions from left to right 
+# #     reverse!(ket_fockSpace)
+# #     @time sign = GetSignOfOperatorPermutation(opPos_i, opPos_j, ket_fockSpace);
+# #     return sign;
+# # end
+
+
+# function sign1(ket:: Int64, opPos_i:: Int64, opPos_j:: Int64, L, S)
+#     ket_fockSpace = FermionAlgebra.WriteStateInFockSpace(ket, L, S);
+#     # println(ket_fockSpace)
+#     # We need to reverse "ket_fockSpace" because program starts counting postions from left to right 
+#     reverse!(ket_fockSpace)
+#     sign = GetSignOfOperatorPermutation1(opPos_i, opPos_j, ket_fockSpace);
+#     return sign;
+# end
+
+
+
+# function sign2(ket:: Int64, opPos_i:: Int64, opPos_j:: Int64, ket_fockSpace::Vector{Int}, S)
+#     FermionAlgebra.WriteStateInFockSpace!(ket, ket_fockSpace, S);
+#     # println(ket_fockSpace)
+#     # We need to reverse "ket_fockSpace" because program starts counting postions from left to right 
+#     reverse!(ket_fockSpace)
+#     sign = GetSignOfOperatorPermutation2(opPos_i, opPos_j, ket_fockSpace);
+#     ket_fockSpace =missing
+#     return sign;
+# end
+
+
+
+# L=12
+
+# ind = FermionAlgebra.IndecesOfSubBlock(L);
+# ket = ind[24]
+# println(ket)
+# opPos_i = 3;
+# opPos_j = 9;
+
+# S=1/2
+
+# ket_fockSpace = Vector{Int}(undef,L);
+
+# @btime sign1(ket, opPos_i, opPos_j, L, S);
+# @btime sign2(ket, opPos_i, opPos_j, ket_fockSpace, S);
+
+
