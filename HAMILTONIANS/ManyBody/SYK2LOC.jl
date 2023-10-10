@@ -1,4 +1,4 @@
-module SYK2
+module SYK2LOC
     using SparseArrays;
     using Distributions;
     using LinearAlgebra;
@@ -16,12 +16,12 @@ module SYK2
         deviation:: Real;
         mean:: Real;
 
-        function Params(L:: Int64, t̲::Union{Matrix{Float64}, Missing} = missing , S::Real = 1/2, μ:: Real = 0., mean::Real=0, deviation::Real=1.)
+        function Params(L:: Int64, a::Float64, b::Float64, t̲::Union{Matrix{Float64}, Missing} = missing, S::Real = 1/2, μ:: Real = 0., mean::Real=0, deviation::Real=1.)
             
             if isequal(t̲, missing)
                 t = Matrix{Float64}(undef, (L,L))
                 for i=1:L, j=1:i
-                    t[i,j] = rand(Normal(mean, deviation));
+                    t[i,j] = rand(Normal(mean, deviation)) / (1 + (abs(i-j)/b)^(2*a))^1/2;
                     
                     if i!=j
                         t[j,i] = t[i,j];
@@ -43,6 +43,7 @@ module SYK2
 
         return typeOfOperatorOnSite[position]
     end
+
 
 
     function AnaliticalNormOfHamiltonian(params)
@@ -132,11 +133,7 @@ module SYK2
         return √(norm);
     end
 
-
-
-
-
-
+    
     function GetSignOfOperatorPermutation(i_cre, j_inh, state)
         return isodd(sum(@view(state[i_cre+1 : j_inh-1]))) ? -1 : 1;
     end
@@ -149,7 +146,7 @@ module SYK2
         sign = GetSignOfOperatorPermutation(opPos_i, opPos_j, ket_fockSpace);
         return sign;
     end
-
+    
 
     global function Ĥ(params:: Params, N::Int64 =Int(params.L÷2),  isSparse:: Bool = true) 
         L = params.L;

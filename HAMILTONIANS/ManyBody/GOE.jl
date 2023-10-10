@@ -22,6 +22,7 @@ module Hgoe
         return √(params.deviation^2*( params.N + 1));
     end
     
+    
 
     global function Ĥ(params:: Params) 
         N = params.N;

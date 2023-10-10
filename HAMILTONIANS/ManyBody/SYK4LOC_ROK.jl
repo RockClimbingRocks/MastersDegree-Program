@@ -1,4 +1,4 @@
-module SYK4
+module SYK4LOC_ROK
     using SparseArrays;
     using Distributions;
     using LinearAlgebra;
@@ -14,25 +14,27 @@ module SYK4
         deviation:: Real;
         mean:: Real;
 
-        function Params(L:: Int64, U̲::Union{Array{Float64}, Missing} = missing, S::Real=1/2, μ::Real=0, mean::Real=0., deviation::Real=1.)
+        function Params(L:: Int64, a::Float64, b::Float64, U̲::Union{Array{Float64}, Missing} = missing, S::Real=1/2, μ::Real=0, mean::Real=0., deviation::Real=1.)
             
             if isequal(U̲, missing)
                 U = zeros(Float64, (L,L,L,L))
 
                 for i=1:L, j=i+1:L, k=1:L, l=k+1:L
                     if U[i,j,k,l] == 0 && i!=j && k!=l
-                        a = rand(Normal(mean, deviation));
+                        r̄ = (abs(i-k) + abs(j-l) + abs(i-l) + abs(k-j))/4;
+                        
+                        a = rand(Normal(mean, deviation)) / (1 + (r̄/b)^(2*a))^1/2;;
                         U[i,j,k,l] = deepcopy(a);
                         U[i,j,l,k] = deepcopy(a)*(-1);
         
-                        U[j,i,k,l] = deepcopy(a)*(-1);
                         U[j,i,l,k] = deepcopy(a);
+                        U[j,i,k,l] = deepcopy(a)*(-1);
                         
                         U[k,l,i,j] = deepcopy(a);
                         U[k,l,j,i] = deepcopy(a)*(-1);
         
-                        U[l,k,i,j] = deepcopy(a)*(-1);
                         U[l,k,j,i] = deepcopy(a);
+                        U[l,k,i,j] = deepcopy(a)*(-1);
                     end
                 end
             else
@@ -43,6 +45,9 @@ module SYK4
         end
 
     end
+
+
+
 
     function GetTypeOfOperatorOnSite(position:: String)
         typeOfOperatorOnSite = Dict{String,String}(
@@ -67,21 +72,19 @@ module SYK4
 
 
     function GetSignOfOperatorPermutation(i_cre, j_cre, k_anh, l_anh, state)
-        # println("($(i_cre), $(j_inh)):", state)
-
         sign_l = isodd(sum(@view(state[1:l_anh-1]))) ? -1 : 1;
         state[l_anh] = 0;
         sign_k = isodd(sum(@view(state[1:k_anh-1]))) ? -1 : 1;
         state[k_anh] = 0;
         sign_j = isodd(sum(@view(state[1:j_cre-1]))) ? -1 : 1;
         state[j_cre] = 1;
-
         sign_i = isodd(sum(@view(state[1:i_cre-1]))) ? -1 : 1;
 
         return sign_l*sign_k*sign_j*sign_i;
     end
 
 
+    
     function sign(ket:: Int64, i_cre:: Int64, j_cre:: Int64, k_inh:: Int64, l_inh:: Int64, ket_fockSpace::Vector{Int}, S)
         FermionAlgebra.WriteStateInFockSpace!(ket, ket_fockSpace, S);
         # We need to reverse "ket_fockSpace" because program starts counting postions from left to right 
@@ -91,7 +94,6 @@ module SYK4
         return sign;
     end
     
-
 
     global function Ĥ(params:: Params, isSparse:: Bool = true) 
         L = params.L;
@@ -125,7 +127,7 @@ module SYK4
             cᵢ⁺cⱼ⁺cₖcₗ[k] *= opₖ;
             cᵢ⁺cⱼ⁺cₖcₗ[l] *= opₗ;
 
-            # We are doing this because we need to determine a sign for each contribution
+            #We are doing this because we need to determine a sign for each contribution
             # matrix = foldl(kron, cᵢ⁺cⱼ⁺cₖcₗ)[ind,ind]
             matrixElements = findall(x -> x==1 , foldl(kron, cᵢ⁺cⱼ⁺cₖcₗ)[ind,ind] )
 
@@ -147,4 +149,22 @@ module SYK4
 
 
 end
+
+
+using BenchmarkTools;
+L=10
+a=1.;
+b=1.;
+params = @btime SYK4LOC_ROK.Params(L,a,b);
+
+# display(params.U)
+
+
+u1 = params.U
+println(u1 ≈ - permutedims(u1, [2,1,3,4]))
+println(u1 ≈ - permutedims(u1, [1,2,4,3]))
+println(u1 ≈ permutedims(u1, [3,4,1,2]))
+
+
+
 
