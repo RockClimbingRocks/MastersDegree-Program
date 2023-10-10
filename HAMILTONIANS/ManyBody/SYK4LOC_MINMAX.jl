@@ -21,7 +21,7 @@ module SYK4LOC_MINMAX
 
                 for i=1:L, j=i+1:L, k=1:L, l=k+1:L
                     if U[i,j,k,l] == 0 && i!=j && k!=l
-                        r̄ = max(i,j,k,l) - min(i,j,k,l);
+                        r̄ = max(i,j,k,l) - min(i,j,k,l) >= 4 ? 0 : 1;
                         
                         a = rand(Normal(mean, deviation)) / (1 + (r̄/b)^(2*a))^1/2;;
                         U[i,j,k,l] = deepcopy(a);

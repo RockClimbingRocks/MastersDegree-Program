@@ -8,6 +8,8 @@ module SYK4LOC_CM
 
     struct Params
         L:: Int64;
+        a:: Float64;
+        b:: Float64;
         U:: Array{Real}; 
         S:: Real;
         μ:: Float64;       
@@ -42,7 +44,7 @@ module SYK4LOC_CM
                 U = U̲[1:L, 1:L, 1:L, 1:L]
             end
 
-            new(L, U, S, μ, deviation, mean)
+            new(L, a, b, U, S, μ, deviation, mean)
         end
 
     end

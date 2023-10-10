@@ -8,10 +8,23 @@ include("../../HAMILTONIANS/ManyBody/SYK2.jl");
 using .SYK2;
 include("../../HAMILTONIANS/ManyBody/SYK4.jl");
 using .SYK4;
+
+include("../../HAMILTONIANS/ManyBody/SYK2LOC.jl");
+using .SYK2LOC
+include("../../HAMILTONIANS/ManyBody/SYK4LOC_CM.jl");
+using .SYK2LOC_CM;
+include("../../HAMILTONIANS/ManyBody/SYK4LOC_MINMAX.jl");
+using .SYK2LOC_MINMAX;
+include("../../HAMILTONIANS/ManyBody/SYK4LOC_ROK.jl");
+using .SYK4LOC_ROK;
+
 include("../../HAMILTONIANS/FermionAlgebra.jl");
 using .FermionAlgebra;
 include("../../CHAOS-INDICATORS/ManyBody/ChaosIndicators.jl");
 using .MBCI;
+include("../GetInteractionStrengths.jl");
+using .IntStrength;
+
 
 
 function GetDirectory()
@@ -33,7 +46,7 @@ end
 
 
 
-function GetChaosIndicators(L:: Int64, n:: Int64, q:: Float64, τs::Vector{Float64})
+function GetChaosIndicators(L:: Int64, a::Float64, b::Float64, LOC4, n:: Int64, λ:: Float64, τs::Vector{Float64})
     # setA:: Vector{Int64} = collect(1:1:L÷2);
     # setB:: Vector{Int64} = collect(L÷2+1:1:L);
     # indices:: Vector{Int64} = FermionAlgebra.IndecesOfSubBlock(L);
@@ -50,10 +63,9 @@ function GetChaosIndicators(L:: Int64, n:: Int64, q:: Float64, τs::Vector{Float
     H = Matrix{Float64}(undef, D, D);
     # ϕ = Matrix{Float64}(undef, D, D);
     for i in 1:n
-        print("Matrika: ");
-        H .= Matrix( @. SYK2.Ĥ2(SYK2.Params(L)) + q * SYK4.Ĥ2(SYK4.Params(L)));
+        H .= Matrix( @. SYK2LOC.Ĥ2(SYK2LOC.Params(L,a,b)) + λ * LOC4.Ĥ2(LOC4.Params(L,a,b)));
         # Es′s[i], ϕ = eigen(Symmetric(Matrix( H2.Ĥ(H2.Params(L)) .+ q .* H4.Ĥ(H4.Params(L)))));
-        print("Diag.: ")
+
         Es′s[i] = eigvals(Symmetric(H));
         r′s[i] = MBCI.r̂(Es′s[i], η);
     end
@@ -63,10 +75,10 @@ function GetChaosIndicators(L:: Int64, n:: Int64, q:: Float64, τs::Vector{Float
 
 
     dir = GetDirectory();
-    fileName = GetFileName(L, N, q);
+    fileName = GetFileName(L, N, λ);
     
     folder = jldopen("$(dir)$(fileName).jld2", "w");
-        # folder["Es′s"] = Es′s;
+        folder["Es′s"] = Es′s;
         folder["rs"] = r′s;
         folder["Ks"] = Ks;
         folder["Kcs"] = Kcs;
@@ -87,22 +99,26 @@ function GetChaosIndicators(L:: Int64, n:: Int64, q:: Float64, τs::Vector{Float
 end
 
 
-# L = parse(Int64, ARGS[1]);
-# N = parse(Int64, ARGS[2]);
 
 
-L=14
-N=10
+
+
+L = parse(Int64, ARGS[1]);
+N = parse(Int64, ARGS[2]);
+LOC4 = SYK4LOC_CM;
+
+a = 1.;
+b = 1.;
 
 τs =  10 .^ LinRange(-4, 1, 400)
-# q′s = [0.001, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5,]
-q′s = [0.2, 0.5,]
+λ′s = IntStrength.λ̂′s();
+
 
 println("Running program name is ", split(PROGRAM_FILE, "MastersDegree-Program/")[end])
 println("L = $(L),    N = $(N)");
 println("workers = $(nworkers())    (processes = $(nprocs()))   threads = $(Threads.nthreads())")
 
-for (i,q) in enumerate(q′s)
-    @time GetChaosIndicators(L, N, q, τs);
+for (i,λ) in enumerate(λ′s)
+    @time GetChaosIndicators(L, a, b, LOC4, N, λ, τs);
 end
 

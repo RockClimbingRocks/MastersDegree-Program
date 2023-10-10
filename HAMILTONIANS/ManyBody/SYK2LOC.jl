@@ -10,6 +10,8 @@ module SYK2LOC
 
     struct Params
         L:: Int64;
+        a:: Float64;
+        b:: Float64;
         t:: Matrix{Float64};
         S:: Real;
         μ:: Float64;
@@ -31,7 +33,7 @@ module SYK2LOC
                 t = t̲[1:L,1:L];
             end      
 
-            new(L, t, S, μ, deviation, mean)
+            new(L, a, b, t, S, μ, deviation, mean)
         end
     end
 
