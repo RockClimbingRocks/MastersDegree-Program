@@ -25,7 +25,7 @@ module OBCI
     - `t′s::Vector{Float64}: Value of disorder parameter in SYK model.`
     - `n::Float64: Degree of polynomial to fit.`
     """
-    function K̂_analitical!(L::Int, t′s::Vector{Float64}, K′s::Vector{Float64})
+    function K̂_analitical!(L::Int64, t′s::Vector{Float64}, K′s::Vector{Float64})
         
         OBSFF.K_analitical_log10!(L, t′s, K′s)
     end

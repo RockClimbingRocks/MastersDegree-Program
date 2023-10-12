@@ -1,29 +1,21 @@
-module SYK2LOC
-    using SparseArrays;
+module SYK2
     using Distributions;
-    using LinearAlgebra;
-    using StaticArrays;
 
-    include("../FermionAlgebra.jl");
+    include("../../FermionAlgebra.jl");
     using .FermionAlgebra;
 
 
     struct Params
         L:: Int64;
-        a:: Float64;
-        b:: Float64;
         t:: Matrix{Float64};
-        S:: Real;
-        μ:: Float64;
-        deviation:: Real;
-        mean:: Real;
+        S:: Float64;
 
-        function Params(L:: Int64, a::Float64, b::Float64, t̲::Union{Matrix{Float64}, Missing} = missing, S::Real = 1/2, μ:: Real = 0., mean::Real=0, deviation::Real=1.)
+        function Params(L:: Int64, t̲::Union{Matrix{Float64}, Missing} = missing , S::Float64 = 1/2)
             
             if isequal(t̲, missing)
                 t = Matrix{Float64}(undef, (L,L))
                 for i=1:L, j=1:i
-                    t[i,j] = rand(Normal(mean, deviation)) / (1 + (abs(i-j)/b)^(2*a))^1/2;
+                    t[i,j] = rand(Normal(0, 1));
                     
                     if i!=j
                         t[j,i] = t[i,j];
@@ -33,22 +25,12 @@ module SYK2LOC
                 t = t̲[1:L,1:L];
             end      
 
-            new(L, a, b, t, S, μ, deviation, mean)
+            new(L, t, S)
         end
     end
 
-    function GetTypeOfOperatorOnSite(position:: String)
-        typeOfOperatorOnSite = Dict{String,String}(
-            "i" => "c⁺", 
-            "j" => "c",
-        );
 
-        return typeOfOperatorOnSite[position]
-    end
-
-
-
-    function AnaliticalNormOfHamiltonian(params)
+    function AnaliticalNormOfHamiltonian(params:: Params)
         function AnaliticalExpressionForAverageOfSqueredHamiltonian(params)
             stateNumbers = FermionAlgebra.IndecesOfSubBlock(params.L) .- 1;
             states = FermionAlgebra.WriteStateInFockSpace.(stateNumbers, params.L, params.S);
@@ -134,64 +116,5 @@ module SYK2LOC
         # norm = params.deviation^2 * params.L *(params.L + 1)/4 ;
         return √(norm);
     end
-
-    
-    function GetSignOfOperatorPermutation(i_cre, j_inh, state)
-        return isodd(sum(@view(state[i_cre+1 : j_inh-1]))) ? -1 : 1;
-    end
-
-    function sign(ket:: Int64, opPos_i:: Int64, opPos_j:: Int64, ket_fockSpace::Vector{Int}, S)
-        FermionAlgebra.WriteStateInFockSpace!(ket, ket_fockSpace, S);
-        # We need to reverse "ket_fockSpace" because program starts counting postions from left to right 
-        reverse!(ket_fockSpace)
-
-        sign = GetSignOfOperatorPermutation(opPos_i, opPos_j, ket_fockSpace);
-        return sign;
-    end
-    
-
-    global function Ĥ(params:: Params, N::Int64 =Int(params.L÷2),  isSparse:: Bool = true) 
-        L = params.L;
-        D = binomial(L,N)
-
-        opᵢ = FermionAlgebra.GetMatrixRepresentationOfOperator(GetTypeOfOperatorOnSite("i"), params.S, isSparse);
-        opⱼ = FermionAlgebra.GetMatrixRepresentationOfOperator(GetTypeOfOperatorOnSite("j"), params.S, isSparse);
-        id = FermionAlgebra.GetMatrixRepresentationOfOperator("id", params.S, isSparse);
-
-        ind = FermionAlgebra.IndecesOfSubBlock(L,N);
-
-        rows = Vector{Int64}();
-        cols = Vector{Int64}();
-        vals = Vector{Float64}();
-
-        tmp_storingVector = Vector{Int}(undef,L);
-    
-        # Hopping term
-        cᵢ⁺cⱼ= fill(id, L); 
-        for i=1:L, j=i:L
-            # Order of those products of operators is importana so dont change it!
-            cᵢ⁺cⱼ[i] *= opᵢ;
-            cᵢ⁺cⱼ[j] *= opⱼ;
-
-            matrixElements = findall(x -> x==1 ,foldl(kron, cᵢ⁺cⱼ)[ind,ind] );  
-            
-            rows_ij = map(elm -> elm[1], matrixElements); 
-            cols_ij = map(elm -> elm[2], matrixElements); 
-            vals_ij = map(elm -> sign(ind[elm[2]]-1, i, j, tmp_storingVector, params.S)*params.t[L+1-i,L+1-j] , matrixElements); 
-
-            append!(rows, i==j ? rows_ij : vcat(rows_ij, cols_ij));
-            append!(cols, i==j ? cols_ij : vcat(cols_ij, rows_ij));
-            append!(vals, i==j ? vals_ij : vcat(vals_ij, conj.(vals_ij)));
-
-            cᵢ⁺cⱼ[i] = cᵢ⁺cⱼ[j] = id;
-        end
-        
-        normalization = AnaliticalNormOfHamiltonianAveraged(params, N);
-        vals ./= normalization
-
-        return isSparse ? sparse(rows, cols, vals, D, D) : Matrix(sparse(rows, cols, vals, D, D));
-    end
-
-
 
 end

@@ -1,6 +1,6 @@
 module IntStrength
     function λ̂′s()
-        λMinMax::Vector{Tuple{Real,Real}} = [(-4,-3), (-3,-2), (-2,-1), (-1,0)];
+        λMinMax::Vector{Tuple{Int64,Int64}} = [(-4,-3), (-3,-2), (-2,-1), (-1,0)];
         Nλ′s:: Vector{Int64} = [5,8,12,8];
         
         length(Nλ′s) != length(λMinMax) ? throw(error("Not the same size!!!")) : nothing;

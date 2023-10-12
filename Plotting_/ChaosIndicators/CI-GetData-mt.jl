@@ -144,7 +144,7 @@ end
     return returnObject;
 end
 
-function GetChaosIndicators_MPandMT(L:: Int, N:: Int, q:: Float64)
+function GetChaosIndicators_MPandMT(L:: Int64, N:: Int64, q:: Float64)
     p:: Int64 = nworkers();
     n:: Int64 = Int(N÷p);
     o:: Int64 = Int(N - n*p);

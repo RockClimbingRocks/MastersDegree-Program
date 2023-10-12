@@ -96,7 +96,7 @@ end
     return returnObject;
 end
 
-function GetChaosIndicators_MPandMT(L:: Int, N:: Int, q:: Float64)
+function GetChaosIndicators_MPandMT(L:: Int64, N:: Int64, q:: Float64)
     p:: Int64 = nworkers();
     n:: Int64 = Int(N÷p);
     o:: Int64 = Int(N - n*p);
@@ -125,7 +125,7 @@ end
 L = parse(Int64, ARGS[1]);
 N = parse(Int64, ARGS[2]);
 
-qMinMax::Vector{Tuple{Real,Real}} = [(-4,-3), (-3,-2), (-2,-1), (-1,0)];
+qMinMax::Vector{Tuple{Int64,Int64}} = [(-4,-3), (-3,-2), (-2,-1), (-1,0)];
 Nq′s:: Vector{Int64} = [5,8,12,8];
 
 length(Nq′s) != length(qMinMax) ? throw(error("Not the same size!!!")) : nothing;

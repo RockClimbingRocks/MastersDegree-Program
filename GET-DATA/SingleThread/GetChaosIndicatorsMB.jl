@@ -1,22 +1,28 @@
-using Distributed;
 using JLD2;
 using LinearAlgebra;
 using SparseArrays;
 using PyPlot;
 
-include("../../HAMILTONIANS/ManyBody/SYK2.jl");
+include("../../HAMILTONIANS/ManyBody/WithoutInteractions/SYK2.jl");
 using .SYK2;
-include("../../HAMILTONIANS/ManyBody/SYK4.jl");
-using .SYK4;
-
-include("../../HAMILTONIANS/ManyBody/SYK2LOC.jl");
+include("../../HAMILTONIANS/ManyBody/WithoutInteractions/SYK2LOC.jl");
 using .SYK2LOC
-include("../../HAMILTONIANS/ManyBody/SYK4LOC_CM.jl");
-using .SYK2LOC_CM;
-include("../../HAMILTONIANS/ManyBody/SYK4LOC_MINMAX.jl");
-using .SYK2LOC_MINMAX;
-include("../../HAMILTONIANS/ManyBody/SYK4LOC_ROK.jl");
+include("../../HAMILTONIANS/ManyBody/WithInteractions/SYK4.jl");
+using .SYK4;
+include("../../HAMILTONIANS/ManyBody/WithInteractions/SYK4LOC_CM.jl");
+using .SYK4LOC_CM;
+include("../../HAMILTONIANS/ManyBody/WithInteractions/SYK4LOC_MINMAX.jl");
+using .SYK4LOC_MINMAX;
+include("../../HAMILTONIANS/ManyBody/WithInteractions/SYK4LOC_ROK.jl");
 using .SYK4LOC_ROK;
+
+include("../../HAMILTONIANS/ManyBody/c+c-.jl");
+using .c⁺c
+include("../../HAMILTONIANS/ManyBody/c+c+c-c-.jl");
+using .c⁺c⁺cc
+
+include("../../PATHS/Paths.jl");
+using .PATH;
 
 include("../../HAMILTONIANS/FermionAlgebra.jl");
 using .FermionAlgebra;
@@ -26,31 +32,15 @@ include("../GetInteractionStrengths.jl");
 using .IntStrength;
 
 
-
-function GetDirectory()
-    dir = "./DATA/ChaosIndicators-ManyBody/";
-    return dir;
-end
-
-function GetFileName(L:: Int64, N:: Int64, q::Float64)
-    fileName = "CI_L$(L)_Iter$(N)_q$(q)";
-    return fileName;
-end
-
-
 function GetEta(L::Int64)
-    GetEtaDict = Dict(6 => 0.1, 8 => 0.15, 10 => 0.2);
+    GetEtaDict = Dict(4 => 0.1, 6 => 0.1, 8 => 0.15, 10 => 0.2);
     return L <= 10 ? GetEtaDict[L] : 0.25;
 end
 
 
 
 
-function GetChaosIndicators(L:: Int64, a::Float64, b::Float64, LOC4, n:: Int64, λ:: Float64, τs::Vector{Float64})
-    # setA:: Vector{Int64} = collect(1:1:L÷2);
-    # setB:: Vector{Int64} = collect(L÷2+1:1:L);
-    # indices:: Vector{Int64} = FermionAlgebra.IndecesOfSubBlock(L);
-
+function GetChaosIndicators(L:: Int64, a::Float64, b::Float64, H2:: Module, H4:: Module, n:: Int64, λ:: Float64, τs::Vector{Float64})
     η = GetEta(L);
     
     Es′s= Vector{Vector{Float64}}(undef,n);
@@ -63,7 +53,10 @@ function GetChaosIndicators(L:: Int64, a::Float64, b::Float64, LOC4, n:: Int64, 
     H = Matrix{Float64}(undef, D, D);
     # ϕ = Matrix{Float64}(undef, D, D);
     for i in 1:n
-        H .= Matrix( @. SYK2LOC.Ĥ2(SYK2LOC.Params(L,a,b)) + λ * LOC4.Ĥ2(LOC4.Params(L,a,b)));
+        param2 = H2.Params(L,a,b);
+        param4 = H4.Params(L,a,b);
+
+        H .= Matrix( c⁺c.Ĥ(L, param2.t) .+ λ .* c⁺c⁺cc.Ĥ(L, param4.U))
         # Es′s[i], ϕ = eigen(Symmetric(Matrix( H2.Ĥ(H2.Params(L)) .+ q .* H4.Ĥ(H4.Params(L)))));
 
         Es′s[i] = eigvals(Symmetric(H));
@@ -74,41 +67,33 @@ function GetChaosIndicators(L:: Int64, a::Float64, b::Float64, LOC4, n:: Int64, 
     Ks, Kcs = MBCI.K̂(Es′s, τs);
 
 
-    dir = GetDirectory();
-    fileName = GetFileName(L, N, λ);
-    
-    folder = jldopen("$(dir)$(fileName).jld2", "w");
-        folder["Es′s"] = Es′s;
-        folder["rs"] = r′s;
-        folder["Ks"] = Ks;
-        folder["Kcs"] = Kcs;
-    close(folder);
+    dir = PATH.GetDirectoryIntoDataFolder();
+    subDir = PATH.GetSubDirectory("MB");
+    fileName = PATH.GetFileName(H2, H4, L, N);
+    groupPath = PATH.GetGroupPath(λ, a, b);
 
-
-    fig, ax = plt.subplots(nrows=1, ncols=2, sharex =false, sharey=false);
-
-    # ax[1].plot(q′s, r′s);
-    ax[2].plot(τs, Ks);
-    ax[2].plot(τs, Kcs);
-
-    ax[1].set_xscale("log");
-    ax[2].set_xscale("log");
-    ax[2].set_yscale("log");
-
-    plt.show();
+    jldopen("$(dir)$(subDir)$(fileName)", "a+") do file
+        # folder["$(groupPath)/Info"] = "η = $(η),  τs = $(τs)";
+        file["$(groupPath)/Es′s"] = Es′s;
+        file["$(groupPath)/r′s"]  = r′s;
+        file["$(groupPath)/Ks"]   = Ks;
+        file["$(groupPath)/Kcs"]  = Kcs;
+        file["$(groupPath)/τs"]   = τs;
+    end
 end
 
 
 
+# L = parse(Int64, ARGS[1]);
+# N = parse(Int64, ARGS[2]);
+L=6;
+N=1;
 
-
-
-L = parse(Int64, ARGS[1]);
-N = parse(Int64, ARGS[2]);
-LOC4 = SYK4LOC_CM;
+H2 = SYK2LOC;
+H4 = SYK4LOC_CM;
 
 a = 1.;
-b = 1.;
+b = 0.05;
 
 τs =  10 .^ LinRange(-4, 1, 400)
 λ′s = IntStrength.λ̂′s();
@@ -116,9 +101,8 @@ b = 1.;
 
 println("Running program name is ", split(PROGRAM_FILE, "MastersDegree-Program/")[end])
 println("L = $(L),    N = $(N)");
-println("workers = $(nworkers())    (processes = $(nprocs()))   threads = $(Threads.nthreads())")
+# println("workers = $(nworkers())    (processes = $(nprocs()))   threads = $(Threads.nthreads())")
 
 for (i,λ) in enumerate(λ′s)
-    @time GetChaosIndicators(L, a, b, LOC4, N, λ, τs);
+    @time GetChaosIndicators(L, a, b, H2, H4, N, λ, τs);
 end
-

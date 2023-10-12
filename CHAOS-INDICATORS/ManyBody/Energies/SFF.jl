@@ -28,7 +28,7 @@ module SFF
     Heviside `𝛩(x)` function. Returns 0 for `x`<0 and 1 for `x`≥0.
         
     # Arguments
-    - `x::Real`: Value of Heviside `𝛩(x)` function at `x`.
+    - `x::Float64`: Value of Heviside `𝛩(x)` function at `x`.
 
     # Examples
     ```jldoctest
@@ -43,7 +43,7 @@ module SFF
     1
     ```
     """
-    𝛩(x:: Real):: Float64 = x<0 ? 0. : 1.;
+    𝛩(x:: Float64):: Float64 = x<0 ? 0. : 1.;
 
 
 
@@ -54,7 +54,7 @@ module SFF
     - `E::Float64`
     - `E′s::Vector{Float64}`: Energy spectrume to unfold.
     """
-    Ĝ(E::Real, E′s::Vector{Float64})::Float64 = sum( 𝛩.(E.-E′s) );
+    Ĝ(E::Float64, E′s::Vector{Float64})::Float64 = sum( 𝛩.(E.-E′s) );
 
 
 

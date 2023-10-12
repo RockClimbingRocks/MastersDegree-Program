@@ -7,8 +7,8 @@ module OBSFF
 
 
 
-    function Wjk_analitical(τ::Float64, j::Int, k::Int)::BigFloat
-        function Lₙᵅ(n::Int,α::Int,x::Union{Float64, BigFloat})
+    function Wjk_analitical(τ::Float64, j::Int64, k::Int64)::BigFloat
+        function Lₙᵅ(n::Int64,α::Int64,x::Union{Float64, BigFloat})
             n′s = zeros(Int64, n+1); n′s[end] = 1;
             p = Laguerre{α}(n′s);
             return p(x);
@@ -20,7 +20,7 @@ module OBSFF
         return sqrt * exp(big(expArg)) * Lₙᵅ(k-1,j-k,big(τ));
     end      
 
-    function Wjk(τ::Float64, j::Int, k::Int)::BigFloat
+    function Wjk(τ::Float64, j::Int64, k::Int)::BigFloat
         j<k ? throw(error("j<k !! NOT OK!")) : nothing;
         result:: BigFloat = Wjk_analitical(τ, j, k)
         return result;

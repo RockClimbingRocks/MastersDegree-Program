@@ -4,7 +4,7 @@ module FermionAlgebra
     using Combinatorics;
     using StaticArrays;
 
-    function ĉ(S:: Real)
+    function ĉ(S:: Float64 = 1/2)
         dim = Int(2*S + 1);
         c  = zeros(Int64, (dim, dim));
 
@@ -15,13 +15,13 @@ module FermionAlgebra
         return c;
     end
 
-    function ĉ⁺(S:: Real)
+    function ĉ⁺(S:: Float64 = 1/2)
         c⁺  = ĉ(S)';
 
         return c⁺;
     end
     
-    function n̂(S:: Real)
+    function n̂(S:: Float64 = 1/2)
         c   = ĉ(S);
         c⁺  = ĉ⁺(S);
         n = c⁺*c;
@@ -29,14 +29,14 @@ module FermionAlgebra
         return n;
     end
 
-    function id̂(S:: Real)
+    function id̂(S:: Float64 = 1/2)
         dim = Int(2*S + 1);
         id  = Matrix{Int64}(I, dim, dim);
 
         return id;  
     end
 
-    global function GetMatrixRepresentationOfOperator(operator:: String, S:: Real, isSparse:: Bool)
+    global function GetMatrixRepresentationOfOperator(operator:: String, isSparse:: Bool, S:: Float64 = 1/2)
         matrixRepresentationOfOperator  = Dict{String, Matrix{Int}}(
             "c⁺" => ĉ⁺(S),
             "c" => ĉ(S),
@@ -69,7 +69,7 @@ module FermionAlgebra
     """
     Function returns a state (defined as a number 'index') written in Fock space.
     """
-    global function WriteStateInFockSpace(index:: Int64, L:: Int64, S:: Real):: Vector{Int64}
+    global function WriteStateInFockSpace(index:: Int64, L:: Int64, S:: Float64):: Vector{Int64}
         state = zeros(Int64, L);
         digits!(state, index, base=Int(2*S+1));
         # digits(state, index, base=Int(2*S+1));
@@ -79,7 +79,7 @@ module FermionAlgebra
     """
     Function returns a state (defined as a number 'index') written in Fock space.
     """
-    global function WriteStateInFockSpace!(index:: Int64, state::Vector{Int}, S:: Real):: Vector{Int64}
+    global function WriteStateInFockSpace!(index:: Int64, state::Vector{Int}, S:: Float64=1/2):: Vector{Int64}
         digits!(state, index, base=Int(2*S+1));
     end   
     

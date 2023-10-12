@@ -6,8 +6,8 @@ module LSR
     Level spacing ratio (LSR) calculated for midle spectrum.
 
     # Arguments
-    - `λ::Vector{Float64}: Spectrum.`
-    - `η::Float64: Portion of the midle spectrum from wich to calculate LSR.`
+    - `λ::Vector{Float64}`: Spectrum.
+    - `η::Float64`: Portion of the midle spectrum from wich to calculate LSR.
     """
     global function LevelSpacingRatio(λ:: Vector{Float64}, η:: Float64):: Float64
         D = length(λ);

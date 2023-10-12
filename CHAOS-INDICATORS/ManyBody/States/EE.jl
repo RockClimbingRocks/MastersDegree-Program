@@ -6,7 +6,7 @@ module LSR
     """
     TODO
     """
-    function EntanglementEntropy(ϕ:: Matrix{Float64}, setA::Vector{Int64}, setB::Vector{Int64}, indices:: Vector{Int64}, η:: Float64 = 0.25, d::Int64=2, cutoff::Real=10^-7, maxdim::Int64= 10):: Vector{Float64}
+    function EntanglementEntropy(ϕ:: Matrix{Float64}, setA::Vector{Int64}, setB::Vector{Int64}, indices:: Vector{Int64}, η:: Float64 = 0.25, d::Int64=2, cutoff::Float64=10^-7, maxdim::Int64= 10):: Vector{Float64}
         D = size(ϕ)[2];
         i₁ = Int((D - (D*η)÷1)÷2);
         i₂ = Int(i₁ + (D*η)÷1);
@@ -31,7 +31,7 @@ module LSR
     """
     hmm
     """
-    function EntanglementEntropy(ϕ:: Vector{Float64}, setA::Vector{Int64}, setB::Vector{Int64}, d::Int64=2, cutoff::Real=10^-7, maxdim::Int64= 10)
+    function EntanglementEntropy(ϕ:: Vector{Float64}, setA::Vector{Int64}, setB::Vector{Int64}, d::Int64=2, cutoff::Float64=10^-7, maxdim::Int64= 10)
         M = Bipartition(ϕ, setA, setB);
 
         λ′s = svdvals(M);

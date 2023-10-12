@@ -195,7 +195,7 @@ Plot1(L′s, N′s, q′s,q′s_hist,deviationType);
 
 
 
-function PlotSₘofEₘ(L:: Int, N:: Int, q:: Float64, ax, η:: Float64)
+function PlotSₘofEₘ(L:: Int64, N:: Int64, q:: Float64, ax, η:: Float64)
 
     dir:: String = GetDirectory(L);
     fileName:: String = GetFileName(L, N, q)

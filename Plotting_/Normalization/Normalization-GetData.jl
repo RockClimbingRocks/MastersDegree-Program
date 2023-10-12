@@ -43,7 +43,7 @@ end
 
 
 
-function GetNormalizationData(L:: Int, maxNumbOfIter:: Int64, namespace:: Module)
+function GetNormalizationData(L:: Int64, maxNumbOfIter:: Int64, namespace:: Module)
     numericalNorm = Vector{Float64}(undef, maxNumbOfIter);
 
     for i=1:maxNumbOfIter

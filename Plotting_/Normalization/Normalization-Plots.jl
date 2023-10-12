@@ -55,7 +55,7 @@ function GetDirectory()
     return dir;
 end
 
-function GetFileName(L:: Int, N:: Int, nameSpace:: Module)
+function GetFileName(L:: Int64, N:: Int64, nameSpace:: Module)
     fileName = "Normalization_$(nameSpace)_L$(L)_N$(N)";
     return fileName;
 end
