@@ -6,7 +6,7 @@ using SparseArrays;
 include("../../HAMILTONIANS/ManyBody/WithoutInteractions/SYK2.jl");
 using .SYK2;
 include("../../HAMILTONIANS/ManyBody/WithoutInteractions/SYK2LOC.jl");
-using .SYK2LOC
+using .SYK2LOC;
 include("../../HAMILTONIANS/ManyBody/WithInteractions/SYK4.jl");
 using .SYK4;
 include("../../HAMILTONIANS/ManyBody/WithInteractions/SYK4LOC_CM.jl");
@@ -17,9 +17,9 @@ include("../../HAMILTONIANS/ManyBody/WithInteractions/SYK4LOC_ROK.jl");
 using .SYK4LOC_ROK;
 
 include("../../HAMILTONIANS/ManyBody/c+c-.jl");
-using .c⁺c
+using .c⁺c;
 include("../../HAMILTONIANS/ManyBody/c+c+c-c-.jl");
-using .c⁺c⁺cc
+using .c⁺c⁺cc;
 
 include("../../PATHS/Paths.jl");
 using .PATH;
@@ -84,10 +84,10 @@ end
 
 
 
-L = parse(Int64, ARGS[1]);
-N = parse(Int64, ARGS[2]);
-# L=6;
-# N=1;
+# L = parse(Int64, ARGS[1]);
+# N = parse(Int64, ARGS[2]);
+L=6;
+N=1;
 
 H2 = SYK2LOC;
 H4 = SYK4LOC_CM;
