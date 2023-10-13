@@ -67,7 +67,7 @@ function GetChaosIndicators(L:: Int64, a::Float64, b::Float64, H2:: Module, H4::
     Ks, Kcs = MBCI.K̂(Es′s, τs);
 
 
-    dir = PATH.GetDirectoryIntoDataFolder();
+    dir = PATH.GetDirectoryIntoDataFolder(@__FILE__);
     subDir = PATH.GetSubDirectory("MB");
     fileName = PATH.GetFileName(H2, H4, L, N);
     groupPath = PATH.GetGroupPath(λ, a, b);
@@ -103,6 +103,8 @@ println("Running program name is ", split(PROGRAM_FILE, "MastersDegree-Program/"
 
 println(PROGRAM_FILE)
 println(@__FILE__);
+
+
 println("L = $(L),    N = $(N)");
 # println("workers = $(nworkers())    (processes = $(nprocs()))   threads = $(Threads.nthreads())")
 

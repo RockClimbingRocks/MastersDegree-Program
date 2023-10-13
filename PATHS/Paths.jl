@@ -2,9 +2,17 @@ module PATH
     """
     Function returns path into DATA folder. Directory path does not end with `/`.
     """
-    function GetDirectoryIntoDataFolder()
-        dir = "./DATA";
-        return dir;        
+    function GetDirectoryIntoDataFolder(filePath:: AbstractString)
+        path1 = split(filePath, "GIT-TEST/");
+        numberOfGoingBacks = length(split(path1, "/")) - 1; 
+        
+        relativePath = "";
+        for _ in 1:numberOfGoingBacks
+            relativePath *= "../"
+        end
+
+        relativePath *= " DATA";
+        return relativePath;        
     end
 
 
