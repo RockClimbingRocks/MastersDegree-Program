@@ -3,10 +3,8 @@
 *.jl.mem
 deps/deps.jl
 
-
-DATA/
-
 *.code-workspace
+*.out
 *.jld2
 *.png
 *.pdf

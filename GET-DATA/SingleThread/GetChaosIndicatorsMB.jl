@@ -1,7 +1,7 @@
 using JLD2;
 using LinearAlgebra;
 using SparseArrays;
-using PyPlot;
+# using PyPlot;
 
 include("../../HAMILTONIANS/ManyBody/WithoutInteractions/SYK2.jl");
 using .SYK2;
@@ -84,10 +84,10 @@ end
 
 
 
-# L = parse(Int64, ARGS[1]);
-# N = parse(Int64, ARGS[2]);
-L=6;
-N=1;
+L = parse(Int64, ARGS[1]);
+N = parse(Int64, ARGS[2]);
+# L=6;
+# N=1;
 
 H2 = SYK2LOC;
 H4 = SYK4LOC_CM;
@@ -100,6 +100,9 @@ b = 0.05;
 
 
 println("Running program name is ", split(PROGRAM_FILE, "MastersDegree-Program/")[end])
+
+println(PROGRAM_FILE)
+println(@__FILE__);
 println("L = $(L),    N = $(N)");
 # println("workers = $(nworkers())    (processes = $(nprocs()))   threads = $(Threads.nthreads())")
 
