@@ -4,9 +4,7 @@ module PATH
     """
     function GetDirectoryIntoDataFolder(filePath:: AbstractString)
         path1 = split(filePath, "MastersDegree-Program")[end];
-        println(path1)
-        numberOfGoingBacks = count(x -> x=="/", split("Dpa/th/1", "")) - 1; 
-        println(numberOfGoingBacks)
+        numberOfGoingBacks = count(x -> x=="/", split(path1, "")) - 1; 
         
         relativePath = "../"^numberOfGoingBacks;
 
