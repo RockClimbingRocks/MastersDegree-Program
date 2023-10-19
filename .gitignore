@@ -3,6 +3,7 @@
 *.jl.mem
 deps/deps.jl
 
+*.sh
 *.code-workspace
 *.out
 *.jld2
