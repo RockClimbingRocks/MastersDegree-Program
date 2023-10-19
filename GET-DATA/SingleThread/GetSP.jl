@@ -42,29 +42,33 @@ end
 
 function GetChaosIndicators(L:: Int64, a::Float64, b::Float64, H2:: Module, H4:: Module, n:: Int64, λ:: Float64, τs::Vector{Float64})
     η = GetEta(L);
-    
-    Es′s= Vector{Vector{Float64}}(undef,n);
-    r′s = Vector{Float64}(undef,n);
-    Ks  = Vector{Vector{Float64}}(undef,n);
-    Kcs = Vector{Vector{Float64}}(undef,n);
-
 
     D = binomial(L, Int(L÷2));
-    H = Matrix{Float64}(undef, D, D);
-    # ϕ = Matrix{Float64}(undef, D, D);
+    H0 = Matrix{Float64}(undef, D, D);
+    H  = Matrix{Float64}(undef, D, D);
+
+    ϕ0 = Matrix{Float64}(undef, D, D);    
+    Es0= Vector{Float64}(undef, D);
+    
+    ϕ = Matrix{Float64}(undef, D, D)
+    Es′s= Vector{Vector{Float64}}(undef,n);;
+
+    C = Matrix{Float64}(undef, D, D);
+
+    Ps = zeros(Float64, length(τs));
     for i in 1:n
         param2 = H2.Params(L,a,b);
         param4 = H4.Params(L,a,b);
 
-        H .= Matrix( c⁺c.Ĥ(L, param2.t) .+ λ .* c⁺c⁺cc.Ĥ(L, param4.U))
-        # Es′s[i], ϕ = eigen(Symmetric(Matrix( H2.Ĥ(H2.Params(L)) .+ q .* H4.Ĥ(H4.Params(L)))));
+        H0 .= H .= Matrix( c⁺c.Ĥ(L, param2.t))
+        H .+= Matrix(λ .* c⁺c⁺cc.Ĥ(L, param4.U))
 
-        Es′s[i] = eigvals(Symmetric(H));
-        r′s[i] = MBCI.r̂(Es′s[i], η);
+        E0, ϕ0 = eigen(Symmetric(H0));
+        Es′s[i], ϕ = eigen(Symmetric(H));
+        C = ϕ * ϕ0;
+
+        Ps .+= MBCI.P̂ᴴ(C, Es′s[i],t);
     end
-
-
-    Ks, Kcs = MBCI.K̂(Es′s, τs);
 
 
     dir = PATH.GetDirectoryIntoDataFolder(@__FILE__);
@@ -74,11 +78,7 @@ function GetChaosIndicators(L:: Int64, a::Float64, b::Float64, H2:: Module, H4::
 
     jldopen("$(dir)$(subDir)$(fileName)", "a+") do file
         # folder["$(groupPath)/Info"] = "η = $(η),  τs = $(τs)";
-        file["$(groupPath)/Es′s"] = Es′s;
-        file["$(groupPath)/r′s"]  = r′s;
-        file["$(groupPath)/Ks"]   = Ks;
-        file["$(groupPath)/Kcs"]  = Kcs;
-        file["$(groupPath)/τs"]   = τs;
+        file["$(groupPath)/Ps"] = Ps;
     end
 end
 
