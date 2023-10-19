@@ -1,7 +1,8 @@
+d=5
+a = rand(d,d)
 
+display(a)
 
-a = count(c -> c=="/", split("Dpa/th/1", ""));
-# a =split("Dpa/th/1", "")
-
-# a = findall(x->x =="/", "Dpa/th/1")
-println(a)
+@time map!(x -> x^2,a,a)
+display(a)
+# println(b)

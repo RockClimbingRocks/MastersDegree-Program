@@ -1,11 +1,13 @@
 module MBCI
 
     include("./Energies/LSR.jl");
-    using .LSR
+    using .LSR;
     include("./Energies/SFF.jl");
-    using .SFF
+    using .SFF;
     include("./States/IE.jl");
-    using .IE
+    using .IE;
+    include("./StatesAndEnergies/SP.jl");
+    using .SP;
 
     
     """
@@ -43,6 +45,19 @@ module MBCI
     global function Ŝ(ϕ:: Matrix{Float64}, η:: Float64):: Vector{Float64}
         return IE.InformationalEntropy(ϕ, η);
     end
+
+
+    """
+    Function returns value for survival probability at time t for single realization of the Hamiltonian. 
+
+    # Arguments
+    - `C::Matrix{Float64}`: Coefifitients `C` are calculated with matrix multiplication `C = Λᵀ*M`. Where `Λ` and `M` are eigenvector matrices of interacting and noninteracting  Hamiltonians, respectevly.
+    - `E′s::Vector{Float64}`: idth of Gaussian filter.
+    - `t::Float64`: Time for which to survival probability.
+    """
+    global function P̂ᴴ(C::Matrix{Float64}, E′s::Vector{Float64}, t::Float64)::Float64
+        return SP.SurvivalProbability_H(C, E′s, t);
+    end 
 end
 
 
