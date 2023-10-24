@@ -3,17 +3,17 @@ using JLD2;
 using LaTeXStrings;
 using Statistics;
 
-include("../HAMILTONIANS/ManyBody/SYK2.jl");
+include("../HAMILTONIANS/ManyBody/WithoutInteractions/SYK2.jl");
 using .SYK2;
-include("../HAMILTONIANS/ManyBody/SYK4.jl");
+include("../HAMILTONIANS/ManyBody/WithInteractions/SYK4.jl");
 using .SYK4;
-include("../HAMILTONIANS/ManyBody/SYK2LOC.jl");
+include("../HAMILTONIANS/ManyBody/WithoutInteractions/SYK2LOC.jl");
 using .SYK2LOC
-include("../HAMILTONIANS/ManyBody/SYK4LOC_CM.jl");
+include("../HAMILTONIANS/ManyBody/WithInteractions/SYK4LOC_CM.jl");
 using .SYK4LOC_CM;
-include("../HAMILTONIANS/ManyBody/SYK4LOC_MINMAX.jl");
+include("../HAMILTONIANS/ManyBody/WithInteractions/SYK4LOC_MINMAX.jl");
 using .SYK4LOC_MINMAX;
-include("../HAMILTONIANS/ManyBody/SYK4LOC_ROK.jl");
+include("../HAMILTONIANS/ManyBody/WithInteractions/SYK4LOC_ROK.jl");
 using .SYK4LOC_ROK;
 
 include("../PATHS/Paths.jl");
@@ -55,9 +55,11 @@ rcParams["axes.prop_cycle"] = PyPlot.matplotlib.cycler(color=colors)
 
 
 function r_of_λ(L:: Int64, λ′s:: Vector{Float64}, N:: Int64, a::Float64, b::Float64, H2::Module, H4::Module, ax)
-    dir = PATH.GetDirectoryIntoDataFolder();
+    dir = "/Volumes/rokpintar-f1home/GIT-TEST/MastersDegree-Program/DATA";
     subDir = PATH.GetSubDirectory("MB");
     fileName = PATH.GetFileName(H2, H4, L, N);
+    
+    
     
     r′s = Vector{Float64}(undef, length(λ′s));
     jldopen("$(dir)$(subDir)$(fileName)", "r") do file
@@ -81,14 +83,14 @@ end
 
 
 function Plot_r()
-    L′s = [8, 10];
-    N′s = [5000, 1000];
+    L′s = [10, 12];
+    N′s = [5000, 3000];
     
-    a = 1.;
+    a = 0.5;
     b = 0.05;
     
     H2 = SYK2LOC;
-    H4 = SYK4LOC_CM;
+    H4 = SYK4LOC_MINMAX;
     
     λ′s = IntStrength.λ̂′s();
     
