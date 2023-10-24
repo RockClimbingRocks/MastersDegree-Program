@@ -96,7 +96,19 @@ end
     return returnObject;
 end
 
-function GetChaosIndicators_MPandMT(L:: Int64, N:: Int64, q:: Float64)
+function (L:: Int64, a::Float64, b::Float64, H2:: Module, H4:: Module, N:: Int64, λ:: Float64, τs::Vector{Float64})
+    η = GetEta(L);
+    
+    Es′s= Vector{Vector{Float64}}(undef,N);
+    r′s = Vector{Float64}(undef,N);
+    Ks  = Vector{Vector{Float64}}(undef,N);
+    Kcs = Vector{Vector{Float64}}(undef,N);
+
+
+    D = binomial(L, Int(L÷2));
+    H = Matrix{Float64}(undef, D, D);
+    # ϕ = Matrix{Float64}(undef, D, D);
+
     p:: Int64 = nworkers();
     n:: Int64 = Int(N÷p);
     o:: Int64 = Int(N - n*p);
@@ -105,52 +117,80 @@ function GetChaosIndicators_MPandMT(L:: Int64, N:: Int64, q:: Float64)
 
     println(n′s);
 
-    returnObject = Vector{ReturnObject}();
 
-    println("---------------")
+    #DO STUFFFF
     # xx = @async Distributed.pmap(i -> GetChaosIndicators_mt(L, n′s[i], q), 1:p)
-    map(x -> append!(returnObject, x), @sync Distributed.pmap(i -> GetChaosIndicators_mt(L, n′s[i], q), 1:p));
-    println("Normalizatioins are calculated");
+    # map(x -> append!(returnObject, x), @sync Distributed.pmap(i -> GetChaosIndicators_mt(L, n′s[i], q), 1:p));
+    # println("Normalizatioins are calculated");
 
 
-    dir = GetDirectory();
-    fileName = GetFileName(L, N, q);
-    
-    folder = jldopen("$(dir)$(fileName).jld2", "w");
-    folder["Es_and_CIs"]=returnObject;
-    close(folder);
+
+    Ks, Kcs = MBCI.K̂(Es′s, τs);
+    dir = PATH.GetDirectoryIntoDataFolder(@__FILE__);
+    subDir = PATH.GetSubDirectory("MB");
+    fileName = PATH.GetFileName(H2, H4, L, N);
+    groupPath = PATH.GetGroupPath(λ, a, b);
+
+    jldopen("$(dir)$(subDir)$(fileName)", "a+") do file
+        # folder["$(groupPath)/Info"] = "η = $(η),  τs = $(τs)";
+        file["$(groupPath)/Es′s"] = Es′s;
+        file["$(groupPath)/r′s"]  = r′s;
+        file["$(groupPath)/Ks"]   = Ks;
+        file["$(groupPath)/Kcs"]  = Kcs;
+        file["$(groupPath)/τs"]   = τs;
+    end
 end
 
 
 L = parse(Int64, ARGS[1]);
 N = parse(Int64, ARGS[2]);
+# L=6;
+# N=1;
 
-qMinMax::Vector{Tuple{Int64,Int64}} = [(-4,-3), (-3,-2), (-2,-1), (-1,0)];
-Nq′s:: Vector{Int64} = [5,8,12,8];
+H2 = SYK2LOC;
+H4 = SYK4LOC_ROK;
 
-length(Nq′s) != length(qMinMax) ? throw(error("Not the same size!!!")) : nothing;
-q′s = Vector{Float64}();
+as = [0.5, 0.75, 1., 1.25];
+bs = [0.05];
 
-for (i, Nq) in enumerate(Nq′s)
-    qmin, qmax = qMinMax[i];
-    x = LinRange(qmin, qmax, Nq);
-    q′s_i = round.(10 .^(x), digits=5);
+τs =  10 .^ LinRange(-4, 1, 400);
 
-    append!(q′s, q′s_i[1:end-1]);
-    i == length(Nq′s) ? append!(q′s, [q′s_i[end]]) : nothing;
-end
-
-# i1 = parse(Int64, ARGS[3]);
-# i2 = parse(Int64, ARGS[4]);
-
-# q′s = q′s[i1:i2];
+λ′s = IntStrength.λ̂′s();
+reverse!(λ′s);
 
 
-println(spectralIndicators);
+println("Running program name is: ", split(PROGRAM_FILE, "MastersDegree-Program/")[end])
+
+println(PROGRAM_FILE)
+println(@__FILE__);
 
 
 println("L = $(L),    N = $(N)");
-println("workers = $(nworkers())    (processes = $(nprocs()))   threads = $(Threads.nthreads())")
+# println("workers = $(nworkers())    (processes = $(nprocs()))   threads = $(Threads.nthreads())")
+
+
+dir = PATH.GetDirectoryIntoDataFolder(@__FILE__);
+subDir = PATH.GetSubDirectory("MB");
+fileName = PATH.GetFileName(H2, H4, L, N);
+
+
+for b in bs 
+    for a in as
+        for (i,λ) in enumerate(λ′s)
+            
+            isDataAllreadyCalculated::Bool = false;
+            jldopen("$(dir)$(subDir)$(fileName)", "a+") do file
+                groupPath = PATH.GetGroupPath(λ, a, b);
+                isDataAllreadyCalculated = haskey(file, "$(groupPath)");
+            end
+            
+            isDataAllreadyCalculated ? continue : nothing;
+            @time GetChaosIndicators_MPandMT(L, a, b, H2, H4, N, λ, τs);
+        end
+    end
+end
+
+
 
 for (i,q) in enumerate(q′s)
     @time GetChaosIndicators_MPandMT(L, N, q);

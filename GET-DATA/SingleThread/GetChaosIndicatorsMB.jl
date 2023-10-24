@@ -40,19 +40,19 @@ end
 
 
 
-function GetChaosIndicators(L:: Int64, a::Float64, b::Float64, H2:: Module, H4:: Module, n:: Int64, λ:: Float64, τs::Vector{Float64})
+function GetChaosIndicators(L:: Int64, a::Float64, b::Float64, H2:: Module, H4:: Module, N:: Int64, λ:: Float64, τs::Vector{Float64})
     η = GetEta(L);
     
-    Es′s= Vector{Vector{Float64}}(undef,n);
-    r′s = Vector{Float64}(undef,n);
-    Ks  = Vector{Vector{Float64}}(undef,n);
-    Kcs = Vector{Vector{Float64}}(undef,n);
+    Es′s= Vector{Vector{Float64}}(undef,N);
+    r′s = Vector{Float64}(undef,N);
+    Ks  = Vector{Vector{Float64}}(undef,N);
+    Kcs = Vector{Vector{Float64}}(undef,N);
 
 
     D = binomial(L, Int(L÷2));
     H = Matrix{Float64}(undef, D, D);
     # ϕ = Matrix{Float64}(undef, D, D);
-    for i in 1:n
+    for i in 1:N
         param2 = H2.Params(L,a,b);
         param4 = H4.Params(L,a,b);
 
@@ -95,8 +95,10 @@ H4 = SYK4LOC_ROK;
 as = [0.5, 0.75, 1., 1.25];
 bs = [0.05];
 
-τs =  10 .^ LinRange(-4, 1, 400)
+τs =  10 .^ LinRange(-4, 1, 400);
+
 λ′s = IntStrength.λ̂′s();
+reverse!(λ′s);
 
 
 println("Running program name is: ", split(PROGRAM_FILE, "MastersDegree-Program/")[end])
